@@ -1279,7 +1279,7 @@ export default function App() {
   };
 
   // APK Compiler Simulator Runner
-  const handleBuildApk = (e) => {
+  const handleBuildApk = async (e) => {
     e.preventDefault();
     if (!apkForm.businessId || !apkForm.appName) {
       return showError('Please select a Business client and provide an App Name.');
@@ -1290,6 +1290,7 @@ export default function App() {
 
     setBuildingApk(true);
     setApkLogs([]);
+    const startTime = Date.now();
 
     const steps = [
       { msg: 'Initializing Kairos Android compiler engine...', delay: 600 },
@@ -1301,25 +1302,61 @@ export default function App() {
       { msg: 'Compiling resources with Gradle wrapper build (release)...', delay: 5800 },
       { msg: 'Optimizing classes.dex and compiling layout resources...', delay: 7000 },
       { msg: 'Signing Android package with Kairos Edio Technologies release keystore...', delay: 8200 },
-      { msg: 'Aligning zip packages (zipalign target)...', delay: 9000 },
-      { msg: 'Build succeeded! Output target generated: app-release.apk (12.4 MB)', delay: 10000 }
+      { msg: 'Aligning zip packages (zipalign target)...', delay: 9000 }
     ];
 
     steps.forEach((step) => {
       setTimeout(() => {
         setApkLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${step.msg}`]);
-        if (step.msg.startsWith('Build succeeded')) {
+      }, step.delay);
+    });
+
+    try {
+      const response = await fetch('/api/build-apk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          businessId: apkForm.businessId,
+          appName: apkForm.appName,
+          packageName: apkForm.packageName,
+          primaryColor: apkForm.primaryColor
+        })
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.status === 'success') {
+        const remainingDelay = Math.max(0, 9500 - (Date.now() - startTime));
+        setTimeout(() => {
+          setApkLogs(prev => [
+            ...prev,
+            `[${new Date().toLocaleTimeString()}] Build succeeded! Output target generated: app-release.apk (12.4 MB)`
+          ]);
           setBuildingApk(false);
           const link = document.createElement('a');
-          link.href = '/app-release.apk';
+          link.href = '/app-release.apk?t=' + Date.now();
           link.download = `${apkForm.appName.replace(/\s+/g, '_')}_v1.0.apk`;
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);
-          showSuccess('Real APK package downloaded successfully.');
-        }
-      }, step.delay);
-    });
+          showSuccess('Real updated APK package compiled and downloaded successfully.');
+        }, remainingDelay);
+      } else {
+        setBuildingApk(false);
+        showError(result.message || 'Android wrapper build compilation failed.');
+        setApkLogs(prev => [
+          ...prev,
+          `[${new Date().toLocaleTimeString()}] ERROR: ${result.message || 'Build failed.'}`
+        ]);
+      }
+    } catch (err) {
+      setBuildingApk(false);
+      showError('Failed to communicate with APK compiler service.');
+      setApkLogs(prev => [
+        ...prev,
+        `[${new Date().toLocaleTimeString()}] ERROR: Server unreachable.`
+      ]);
+    }
   };
 
   const getMainActivityCode = () => {

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import {
   Building2, Users, Receipt, ShieldCheck, Download, Upload, Plus,
   Search, ShieldAlert, Ban, CheckCircle2, AlertCircle, RefreshCw,
-  LogOut, Smartphone, Check, Moon, Sun, ArrowRight, UserCheck, Trash2, Edit2, Info,
+  LogOut, Smartphone, Check, Moon, Sun, ArrowRight, UserCheck, Trash2, Edit2, Info, Share2, Copy,
   Wifi, Battery, Award, TrendingUp, MapPin, BarChart3, Layers, Filter, Globe,
   ChevronDown, ChevronUp
 } from 'lucide-react';
@@ -63,10 +63,59 @@ const TRANSLATIONS = {
     unassigned: 'Unassigned',
     connectionStatus: 'Connection Status',
     operationalWorkers: 'Operational Workers',
-    
-    // Core earnings metrics updates
     todayEarning: 'Today Earning',
-    totalEarning: 'Total Earning'
+    totalEarning: 'Total Earning',
+    
+    // Additional dynamic translations
+    subscriberName: 'Subscriber Name',
+    streetName: 'Street / Area Name',
+    phoneNumber: 'Phone Number',
+    assignWorker: 'Assign Worker',
+    unpaidMonths: 'Unpaid Months',
+    paymentHistory: 'Payment History',
+    paymentActions: 'Payment Actions',
+    close: 'Close',
+    back: 'Back',
+    postPayment: 'Post Payment',
+    logBulkPayments: 'Log Bulk Payments',
+    fromMonth: 'From Month',
+    fromYear: 'From Year',
+    toMonth: 'To Month',
+    toYear: 'To Year',
+    welcome: 'Welcome',
+    goodMorning: 'Good Morning',
+    goodAfternoon: 'Good Afternoon',
+    goodEvening: 'Good Evening',
+    editPayment: 'Edit Recorded Payment',
+    paymentDate: 'Payment Date',
+    paymentStatus: 'Payment Status',
+    logPaymentFor: 'Log Payment for',
+    bulkPaymentsLog: 'Bulk Payments Log',
+    paid: 'Paid',
+    pending: 'Pending',
+    due: 'Due',
+    onlyEditOwnCollections: 'You can only edit your own collections.',
+    noneFullyPaid: 'None (Fully Paid)',
+    showing: 'Showing',
+    noCustomersFound: 'No customers matching filters.',
+    customerRecord: 'Customer Record',
+    myCollectionsFor: 'My Collections for',
+    myCollectionsLedger: 'My Collections Ledger',
+    collectionsLogged: 'Collections Logged',
+    noCollectionsRegistered: 'No collections registered for this period.',
+    downloadWorkerReport: 'Download Worker Monthly Report (XLS)',
+    january: 'January',
+    february: 'February',
+    march: 'March',
+    april: 'April',
+    may: 'May',
+    june: 'June',
+    july: 'July',
+    august: 'August',
+    september: 'September',
+    october: 'October',
+    november: 'November',
+    december: 'December'
   },
   ta: {
     dashboard: 'முகப்பு',
@@ -117,12 +166,63 @@ const TRANSLATIONS = {
     unassigned: 'ஒதுக்கப்படாதவர்',
     connectionStatus: 'இணைப்பு நிலை',
     operationalWorkers: 'பணிபுரியும் பணியாளர்கள்',
-    
-    // Core earnings metrics updates
     todayEarning: 'இன்றைய வசூல்',
-    totalEarning: 'மொத்த வசூல்'
+    totalEarning: 'மொத்த வசூல்',
+    
+    // Additional dynamic translations
+    subscriberName: 'சந்தாதாரர் பெயர்',
+    streetName: 'தெரு / பகுதி பெயர்',
+    phoneNumber: 'தொலைபேசி எண்',
+    assignWorker: 'பணியாளரை நியமி',
+    unpaidMonths: 'செலுத்தப்படாத மாதங்கள்',
+    paymentHistory: 'கட்டண வரலாறு',
+    paymentActions: 'கட்டண நடவடிக்கைகள்',
+    close: 'மூடு',
+    back: 'பின்னால்',
+    postPayment: 'கட்டணத்தை பதிவு செய்',
+    logBulkPayments: 'கட்டணங்களை பதிவு செய்',
+    fromMonth: 'முதல் மாதம்',
+    fromYear: 'முதல் வருடம்',
+    toMonth: 'வரை மாதம்',
+    toYear: 'வரை வருடம்',
+    welcome: 'வரவேற்கிறோம்',
+    goodMorning: 'காலை வணக்கம்',
+    goodAfternoon: 'மதிய வணக்கம்',
+    goodEvening: 'மாலை வணக்கம்',
+    editPayment: 'கட்டண விவரத் திருத்தம்',
+    paymentDate: 'கட்டண தேதி',
+    paymentStatus: 'கட்டண நிலை',
+    logPaymentFor: 'வசூல் பதிவு -',
+    bulkPaymentsLog: 'மொத்த வசூல் பதிவு',
+    paid: 'செலுத்தப்பட்டது',
+    pending: 'நிலுவையில்',
+    due: 'நிலுவை',
+    onlyEditOwnCollections: 'உங்களது சொந்த வசூல் பதிவுகளை மட்டுமே நீங்கள் திருத்த முடியும்.',
+    noneFullyPaid: 'இல்லை (முழுமையாக செலுத்தப்பட்டது)',
+    showing: 'காண்பிக்கிறது',
+    noCustomersFound: 'பொருந்தும் வாடிக்கையாளர்கள் யாரும் இல்லை.',
+    customerRecord: 'வாடிக்கையாளர் பதிவு',
+    myCollectionsFor: 'எனது வசூல்',
+    myCollectionsLedger: 'எனது வசூல் பேரேடு',
+    collectionsLogged: 'பதிவு செய்யப்பட்ட வசூல்',
+    noCollectionsRegistered: 'இந்த காலத்தில் எந்த வசூலும் பதிவு செய்யப்படவில்லை.',
+    downloadWorkerReport: 'பணியாளர் மாதாந்திர அறிக்கை பதிவிறக்கு (XLS)',
+    january: 'ஜனவரி',
+    february: 'பிப்ரவரி',
+    march: 'மார்ச்',
+    april: 'ஏப்ரல்',
+    may: 'மே',
+    june: 'ஜூன்',
+    july: 'ஜூலை',
+    august: 'ஆகஸ்ட்',
+    september: 'செப்டம்பர்',
+    october: 'அக்டோபர்',
+    november: 'நவம்பர்',
+    december: 'டிசம்பர்'
   }
 };
+
+const MONTHS_ORDER = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -137,6 +237,7 @@ export default function App() {
   const [customers, setCustomers] = useState([]);
   const [payments, setPayments] = useState([]);
   const [auditLogs, setAuditLogs] = useState([]);
+  const [currentBusiness, setCurrentBusiness] = useState(null);
   
   // UI State
   const [errorMsg, setErrorMsg] = useState('');
@@ -144,7 +245,9 @@ export default function App() {
   const [modalType, setModalType] = useState(null); // 'add_business', 'add_user', 'add_customer', 'bulk_payment', 'edit_customer', 'inspect_worker'
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [selectedWorker, setSelectedWorker] = useState(null);
+  const [selectedPayment, setSelectedPayment] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [showSplash, setShowSplash] = useState(true);
 
   // Form States
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
@@ -153,6 +256,25 @@ export default function App() {
   const [customerForm, setCustomerForm] = useState({ customer_name: '', street_name: '', box_id: '', phone_number: '', assigned_worker_id: '', connection_status: 'ACTIVE', notes: '' });
   const [bulkPaymentForm, setBulkPaymentForm] = useState({ periods: [], amount: '', notes: '' });
   const [singlePaymentForm, setSinglePaymentForm] = useState({ amount: '', period: '', notes: '' });
+  const [paymentForm, setPaymentForm] = useState({ amount: '', period: '', date: '', notes: '' });
+  const [bulkPaymentRange, setBulkPaymentRange] = useState({
+    fromMonth: '5', // June (0-indexed)
+    fromYear: '2026',
+    toMonth: '5',
+    toYear: '2026'
+  });
+
+  // Offline Sync State
+  const [offlineQueue, setOfflineQueue] = useState(() => {
+    try {
+      const saved = localStorage.getItem('kairos_offline_queue');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [syncingOffline, setSyncingOffline] = useState(false);
 
   // Filter States
   const [searchQuery, setSearchQuery] = useState('');
@@ -176,11 +298,294 @@ export default function App() {
   const [apkForm, setApkForm] = useState({ businessId: '', appName: '', packageName: 'com.kairos.cableapp', primaryColor: '#4f46e5' });
   const [apkLogs, setApkLogs] = useState([]);
   const [buildingApk, setBuildingApk] = useState(false);
+  const [activeCodeTab, setActiveCodeTab] = useState('MainActivity.java');
+
+  // Helper: Hex color to HSL
+  const hexToHsl = (hex) => {
+    hex = hex.replace('#', '');
+    if (hex.length === 3) {
+      hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+    }
+    const r = parseInt(hex.substring(0, 2), 16) / 255;
+    const g = parseInt(hex.substring(2, 4), 16) / 255;
+    const b = parseInt(hex.substring(4, 6), 16) / 255;
+
+    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    let h, s, l = (max + min) / 2;
+
+    if (max === min) {
+      h = s = 0;
+    } else {
+      const d = max - min;
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      switch (max) {
+        case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+        case g: h = (b - r) / d + 2; break;
+        case b: h = (r - g) / d + 4; break;
+      }
+      h /= 6;
+    }
+
+    return {
+      h: Math.round(h * 360),
+      s: Math.round(s * 100),
+      l: Math.round(l * 100)
+    };
+  };
+
+  // Helper: Format amount with 2 decimal places
+  const formatAmount = (val) => {
+    const num = parseFloat(val || 0);
+    return isNaN(num) ? '0.00' : num.toFixed(2);
+  };
+
+  // Helper: Normalize street names to Title Case case-insensitively
+  const normalizeStreetName = (name) => {
+    if (!name) return '';
+    return name
+      .trim()
+      .toLowerCase()
+      .split(' ')
+      .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ');
+  };
+
+  // Helper: Get unpaid due months chronologically from registration month to current month
+  const getDueMonths = (customer, allPayments) => {
+    if (!customer) return [];
+    
+    // Parse registration date (c.created_at). Fallback to June 2026.
+    const regDate = customer.created_at ? new Date(customer.created_at) : new Date(2026, 5, 1);
+    const regYear = regDate.getFullYear();
+    const regMonth = regDate.getMonth();
+
+    const currentDate = new Date();
+    const curYear = currentDate.getFullYear();
+    const curMonth = currentDate.getMonth();
+
+    const duePeriods = [];
+    let y = regYear;
+    let m = regMonth;
+
+    while (y < curYear || (y === curYear && m <= curMonth)) {
+      duePeriods.push(`${MONTHS_ORDER[m]} ${y}`);
+      m++;
+      if (m > 11) {
+        m = 0;
+        y++;
+      }
+    }
+
+    const paidPeriods = allPayments
+      .filter(p => p.customer_id === customer.id && p.status === 'Paid')
+      .map(p => p.payment_period);
+
+    return duePeriods.filter(p => !paidPeriods.includes(p));
+  };
 
   // Translation Helper
   const t = (key) => {
     return TRANSLATIONS[language]?.[key] || TRANSLATIONS['en']?.[key] || key;
   };
+
+  const getGreeting = () => {
+    const hr = new Date().getHours();
+    if (hr < 12) return t('goodMorning');
+    if (hr < 17) return t('goodAfternoon');
+    return t('goodEvening');
+  };
+
+  const formatPeriodTranslated = (periodStr) => {
+    if (!periodStr) return '';
+    const parts = periodStr.split(' ');
+    if (parts.length === 2) {
+      const mLower = parts[0].toLowerCase();
+      return `${t(mLower)} ${parts[1]}`;
+    }
+    return periodStr;
+  };
+
+  const getMonthsInRange = (fromMonthIdx, fromYear, toMonthIdx, toYear) => {
+    const startYear = parseInt(fromYear);
+    const startMonth = parseInt(fromMonthIdx);
+    const endYear = parseInt(toYear);
+    const endMonth = parseInt(toMonthIdx);
+
+    const periods = [];
+    let y = startYear;
+    let m = startMonth;
+
+    while (y < endYear || (y === endYear && m <= endMonth)) {
+      periods.push(`${MONTHS_ORDER[m]} ${y}`);
+      m++;
+      if (m > 11) {
+        m = 0;
+        y++;
+      }
+    }
+    return periods;
+  };
+
+  const handleOpenEditPayment = (pay) => {
+    if (currentUser.role === 'WORKER' && pay.worker_id !== currentUser.id) {
+      showError(t('onlyEditOwnCollections') || 'You can only edit your own collections.');
+      return;
+    }
+    setSelectedPayment(pay);
+    setPaymentForm({
+      amount: pay.amount.toString(),
+      period: pay.payment_period,
+      date: pay.payment_date,
+      notes: pay.notes || ''
+    });
+    setModalType('edit_payment');
+  };
+
+  const handleUpdatePayment = async (e) => {
+    e.preventDefault();
+    if (!selectedPayment) return;
+    if (!paymentForm.amount || !paymentForm.period || !paymentForm.date) {
+      return showError('Amount, Period, and Date are required.');
+    }
+
+    try {
+      const data = {
+        amount: parseFloat(paymentForm.amount),
+        payment_period: paymentForm.period,
+        payment_date: paymentForm.date,
+        notes: paymentForm.notes
+      };
+
+      const updated = await dbService.payments.update(selectedPayment.id, data, currentUser.id);
+      
+      setPayments(payments.map(p => p.id === selectedPayment.id ? updated : p));
+      setModalType(selectedCustomer ? 'customer_details' : null);
+      setSelectedPayment(null);
+      showSuccess('Payment record updated.');
+      loadData();
+    } catch (err) {
+      showError(err.message);
+    }
+  };
+
+  const shareReceiptWhatsApp = (pay, cust) => {
+    if (!cust) return;
+    
+    let phone = cust.phone_number ? cust.phone_number.replace(/\D/g, '') : '';
+    if (phone && phone.length === 10) {
+      phone = '91' + phone;
+    }
+    
+    const bizName = import.meta.env.VITE_BUSINESS_NAME || currentBusiness?.business_name || 'City Cable Network';
+    const operatorName = currentUser?.name || 'Operator Admin';
+    const amountStr = formatAmount(pay.amount);
+    const dateStr = pay.payment_date;
+    const periodStr = formatPeriodTranslated(pay.payment_period);
+    const boxId = pay.box_id;
+    
+    let text = '';
+    if (language === 'ta') {
+      text = `*${bizName}*\n` +
+             `வசூல் ரசீது\n` +
+             `-------------------\n` +
+             `சந்தாதாரர்: ${cust.customer_name}\n` +
+             `பாக்ஸ் ஐடி: ${boxId}\n` +
+             `கட்டண மாதம்: ${periodStr}\n` +
+             `வசூலிக்கப்பட்ட தொகை: ₹${amountStr}\n` +
+             `வசூல் தேதி: ${dateStr}\n` +
+             `சரிபார்க்கப்பட்டது: ${operatorName}\n\n` +
+             `உங்கள் கட்டணத்திற்கு நன்றி!`;
+    } else {
+      text = `*${bizName}*\n` +
+             `Payment Receipt\n` +
+             `-------------------\n` +
+             `Subscriber: ${cust.customer_name}\n` +
+             `Box ID: ${boxId}\n` +
+             `Billing Period: ${periodStr}\n` +
+             `Amount Paid: ₹${amountStr}\n` +
+             `Payment Date: ${dateStr}\n` +
+             `Validated By: ${operatorName}\n\n` +
+             `Thank you for your payment!`;
+    }
+    
+    const waUrl = phone 
+      ? `https://wa.me/${phone}?text=${encodeURIComponent(text)}` 
+      : `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+    window.open(waUrl, '_blank');
+  };
+
+  const triggerOfflineSync = async (forcedQueue = null) => {
+    const queue = forcedQueue || offlineQueue;
+    if (queue.length === 0 || syncingOffline) return;
+    
+    if (!navigator.onLine) {
+      showError(language === 'ta' ? 'இணைய இணைப்பு இல்லை. மீண்டும் முயற்சிக்கவும்.' : 'Network offline. Cannot sync right now.');
+      return;
+    }
+    
+    setSyncingOffline(true);
+    let successCount = 0;
+    const remainingQueue = [...queue];
+    const syncedPayments = [];
+    
+    showSuccess(language === 'ta' ? 'ஆஃப்லைன் வசூல்கள் ஒத்திசைக்கப்படுகிறது...' : 'Syncing offline payments...');
+    
+    try {
+      while (remainingQueue.length > 0) {
+        const item = remainingQueue[0];
+        
+        if (item.action === 'CREATE_PAYMENT') {
+          const res = await dbService.payments.create(item.data, currentUser.id);
+          syncedPayments.push(res);
+          successCount++;
+        }
+        
+        remainingQueue.shift();
+      }
+      
+      localStorage.setItem('kairos_offline_queue', JSON.stringify(remainingQueue));
+      setOfflineQueue(remainingQueue);
+      
+      setPayments(prev => {
+        const filtered = prev.filter(p => !p.id.startsWith('temp-'));
+        return [...syncedPayments, ...filtered];
+      });
+      
+      showSuccess(
+        language === 'ta' 
+          ? `${successCount} ஆஃப்லைன் வசூல்கள் வெற்றிகரமாக ஒத்திசைக்கப்பட்டது!` 
+          : `Successfully synced ${successCount} offline payment(s) to cloud database!`
+      );
+      loadData();
+    } catch (err) {
+      console.error('Offline sync error', err);
+      localStorage.setItem('kairos_offline_queue', JSON.stringify(remainingQueue));
+      setOfflineQueue(remainingQueue);
+      showError(
+        language === 'ta'
+          ? `ஒத்திசைவு தோல்வியடைந்தது: ${err.message}. பின்னர் தானாகவே முயலும்.`
+          : `Sync error: ${err.message}. Device will auto-retry later.`
+      );
+    } finally {
+      setSyncingOffline(false);
+    }
+  };
+
+  // Theme & Splash Screen initialization
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowSplash(false);
+    }, 2500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    const injectedThemeColor = import.meta.env.VITE_THEME_COLOR || import.meta.env.VITE_PRIMARY_COLOR || '';
+    if (injectedThemeColor && /^#[0-9A-F]{6}$/i.test(injectedThemeColor)) {
+      const { h } = hexToHsl(injectedThemeColor);
+      document.documentElement.style.setProperty('--hue-primary', h.toString());
+    }
+  }, []);
 
   const toggleStreet = (streetName) => {
     setExpandedStreets(prev => ({
@@ -189,10 +594,34 @@ export default function App() {
     }));
   };
 
-  // Check login session
+  // Check login session & connectivity event listeners
   useEffect(() => {
     checkSession();
   }, []);
+
+  useEffect(() => {
+    if (currentUser && isOnline && offlineQueue.length > 0) {
+      triggerOfflineSync();
+    }
+  }, [currentUser, isOnline]);
+
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+      triggerOfflineSync();
+    };
+    const handleOffline = () => {
+      setIsOnline(false);
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [offlineQueue, currentUser]);
 
   const checkSession = async () => {
     try {
@@ -226,6 +655,13 @@ export default function App() {
         setCustomers(custs);
         setPayments(pays);
         setProfiles(profs); // Load all business users
+
+        // Fetch business details for operator branding
+        if (user.business_id) {
+          const bizList = await dbService.businesses.list();
+          const found = bizList.find(b => b.id === user.business_id);
+          setCurrentBusiness(found || null);
+        }
       }
     } catch (err) {
       showError(err.message);
@@ -358,7 +794,7 @@ export default function App() {
       const data = {
         business_id: currentUser.business_id,
         customer_name: customerForm.customer_name,
-        street_name: customerForm.street_name,
+        street_name: normalizeStreetName(customerForm.street_name),
         box_id: customerForm.box_id,
         phone_number: customerForm.phone_number,
         assigned_worker_id: currentUser.role === 'WORKER' ? currentUser.id : (customerForm.assigned_worker_id || null),
@@ -387,7 +823,7 @@ export default function App() {
     try {
       const updatedData = {
         customer_name: customerForm.customer_name,
-        street_name: customerForm.street_name,
+        street_name: normalizeStreetName(customerForm.street_name),
         box_id: customerForm.box_id,
         phone_number: customerForm.phone_number,
         assigned_worker_id: currentUser.role === 'WORKER' ? currentUser.id : (customerForm.assigned_worker_id || null),
@@ -426,27 +862,85 @@ export default function App() {
       return showError('Amount and Period are required.');
     }
 
-    try {
-      const data = {
-        business_id: currentUser.business_id,
-        customer_id: selectedCustomer.id,
-        box_id: selectedCustomer.box_id,
-        worker_id: currentUser.role === 'WORKER' ? currentUser.id : null,
-        amount: parseFloat(singlePaymentForm.amount),
-        payment_date: new Date().toISOString().split('T')[0],
-        payment_period: singlePaymentForm.period,
-        status: 'Paid',
-        notes: singlePaymentForm.notes
-      };
+    const data = {
+      business_id: currentUser.business_id,
+      customer_id: selectedCustomer.id,
+      box_id: selectedCustomer.box_id,
+      worker_id: currentUser.role === 'WORKER' ? currentUser.id : null,
+      amount: parseFloat(singlePaymentForm.amount),
+      payment_date: new Date().toISOString().split('T')[0],
+      payment_period: singlePaymentForm.period,
+      status: 'Paid',
+      notes: singlePaymentForm.notes
+    };
 
+    if (!isOnline) {
+      const tempId = 'temp-' + Date.now();
+      const localPay = {
+        id: tempId,
+        ...data,
+        sync_status: 'PENDING_SYNC',
+        created_at: new Date().toISOString()
+      };
+      
+      const updatedQueue = [...offlineQueue, {
+        id: tempId,
+        action: 'CREATE_PAYMENT',
+        data: data
+      }];
+      setOfflineQueue(updatedQueue);
+      localStorage.setItem('kairos_offline_queue', JSON.stringify(updatedQueue));
+      
+      setPayments([localPay, ...payments]);
+      setSinglePaymentForm({ amount: '', period: '', notes: '' });
+      setModalType(null);
+      showSuccess(language === 'ta' ? 'இணையம் இல்லை. ஆஃப்லைனில் சேமிக்கப்பட்டது, பின்னர் ஒத்திசைக்கப்படும்.' : 'Saved offline. Payment will auto-sync when network is available.');
+      return;
+    }
+
+    try {
       const newPay = await dbService.payments.create(data, currentUser.id);
       setPayments([newPay, ...payments]);
       setSinglePaymentForm({ amount: '', period: '', notes: '' });
       setModalType(null);
-      showSuccess('Payment logged successfully.');
+      
+      showSuccess(
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <span>{language === 'ta' ? 'வசூல் பதிவு செய்யப்பட்டது.' : 'Payment logged successfully.'}</span>
+          <button 
+            onClick={() => shareReceiptWhatsApp(newPay, selectedCustomer)}
+            className="btn btn-primary"
+            style={{ padding: '6px 12px', fontSize: '11px', background: '#25D366', border: 'none', color: '#ffffff', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}
+          >
+            <Share2 size={12} /> WhatsApp
+          </button>
+        </div>
+      );
       loadData();
     } catch (err) {
-      showError(err.message);
+      if (err.message.includes('fetch') || err.message.includes('network') || err.message.includes('Failed to fetch') || !navigator.onLine) {
+        const tempId = 'temp-' + Date.now();
+        const localPay = {
+          id: tempId,
+          ...data,
+          sync_status: 'PENDING_SYNC',
+          created_at: new Date().toISOString()
+        };
+        const updatedQueue = [...offlineQueue, {
+          id: tempId,
+          action: 'CREATE_PAYMENT',
+          data: data
+        }];
+        setOfflineQueue(updatedQueue);
+        localStorage.setItem('kairos_offline_queue', JSON.stringify(updatedQueue));
+        
+        setPayments([localPay, ...payments]);
+        setSinglePaymentForm({ amount: '', period: '', notes: '' });
+        setModalType(null);
+        showSuccess(language === 'ta' ? 'இணைய இணைப்பு கோளாறு. ஆஃப்லைனில் சேமிக்கப்பட்டது.' : 'Connection failed. Saved offline.');
+      } else {
+        showError(err.message);
+      }
     }
   };
 
@@ -457,25 +951,97 @@ export default function App() {
       return showError('Please select at least one period and specify the amount.');
     }
 
+    const perPeriodAmount = (parseFloat(bulkPaymentForm.amount) / bulkPaymentForm.periods.length).toFixed(2);
+    const collectorId = currentUser.role === 'WORKER' ? currentUser.id : null;
+    const dateStr = new Date().toISOString().split('T')[0];
+
+    const paymentsToCreate = bulkPaymentForm.periods.map(period => ({
+      business_id: currentUser.business_id,
+      customer_id: selectedCustomer.id,
+      box_id: selectedCustomer.box_id,
+      worker_id: collectorId,
+      amount: parseFloat(perPeriodAmount),
+      payment_date: dateStr,
+      payment_period: period,
+      status: 'Paid',
+      notes: bulkPaymentForm.notes || 'Bulk payment log'
+    }));
+
+    if (!isOnline) {
+      const updatedQueue = [...offlineQueue];
+      const localPayments = [];
+
+      paymentsToCreate.forEach((dataItem, index) => {
+        const tempId = `temp-${Date.now()}-${index}`;
+        localPayments.push({
+          id: tempId,
+          ...dataItem,
+          sync_status: 'PENDING_SYNC',
+          created_at: new Date().toISOString()
+        });
+        updatedQueue.push({
+          id: tempId,
+          action: 'CREATE_PAYMENT',
+          data: dataItem
+        });
+      });
+
+      setOfflineQueue(updatedQueue);
+      localStorage.setItem('kairos_offline_queue', JSON.stringify(updatedQueue));
+      setPayments([...localPayments, ...payments]);
+      setBulkPaymentForm({ periods: [], amount: '', notes: '' });
+      setModalType(null);
+      showSuccess(language === 'ta' ? 'இணையம் இல்லை. ஆஃப்லைனில் மொத்த வசூலும் சேமிக்கப்பட்டது.' : 'Device offline. Bulk payments saved offline.');
+      return;
+    }
+
     try {
-      const collectorId = currentUser.role === 'WORKER' ? currentUser.id : null;
-      await dbService.payments.createBulk(
+      const collectorIdVal = currentUser.role === 'WORKER' ? currentUser.id : null;
+      const results = await dbService.payments.createBulk(
         selectedCustomer.id,
         bulkPaymentForm.periods,
         parseFloat(bulkPaymentForm.amount),
-        collectorId,
+        collectorIdVal,
         currentUser.business_id,
         bulkPaymentForm.notes,
         selectedCustomer.box_id,
         currentUser.id
       );
 
+      setPayments([...(results || []), ...payments]);
       setBulkPaymentForm({ periods: [], amount: '', notes: '' });
       setModalType(null);
-      showSuccess('Bulk collections logged successfully.');
+      showSuccess(language === 'ta' ? 'மொத்த வசூலும் பதிவு செய்யப்பட்டது.' : 'Bulk payments recorded successfully.');
       loadData();
     } catch (err) {
-      showError(err.message);
+      if (err.message.includes('fetch') || err.message.includes('network') || err.message.includes('Failed to fetch') || !navigator.onLine) {
+        const updatedQueue = [...offlineQueue];
+        const localPayments = [];
+
+        paymentsToCreate.forEach((dataItem, index) => {
+          const tempId = `temp-${Date.now()}-${index}`;
+          localPayments.push({
+            id: tempId,
+            ...dataItem,
+            sync_status: 'PENDING_SYNC',
+            created_at: new Date().toISOString()
+          });
+          updatedQueue.push({
+            id: tempId,
+            action: 'CREATE_PAYMENT',
+            data: dataItem
+          });
+        });
+
+        setOfflineQueue(updatedQueue);
+        localStorage.setItem('kairos_offline_queue', JSON.stringify(updatedQueue));
+        setPayments([...localPayments, ...payments]);
+        setBulkPaymentForm({ periods: [], amount: '', notes: '' });
+        setModalType(null);
+        showSuccess(language === 'ta' ? 'இணைய கோளாறு. ஆஃப்லைனில் மொத்த வசூலும் சேமிக்கப்பட்டது.' : 'Connection failed. Bulk payments saved offline.');
+      } else {
+        showError(err.message);
+      }
     }
   };
 
@@ -503,7 +1069,7 @@ export default function App() {
             }
             validRows.push({
               customer_name: row['Customer Name'].trim(),
-              street_name: row['Street Name'].trim(),
+              street_name: normalizeStreetName(row['Street Name']),
               box_id: row['Box ID'].trim(),
               phone_number: row['Phone Number'] ? row['Phone Number'].trim() : '',
               connection_status: row['Status']?.toUpperCase() === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE',
@@ -556,7 +1122,7 @@ export default function App() {
             } else {
               validRows.push({
                 customer_name: row['Customer Name'].trim(),
-                street_name: row['Street Name'].trim(),
+                street_name: normalizeStreetName(row['Street Name']),
                 box_id: row['Box ID'].trim(),
                 phone_number: row['Phone Number'] ? row['Phone Number'].trim() : '',
                 connection_status: row['Status']?.toUpperCase() === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE',
@@ -623,11 +1189,31 @@ export default function App() {
       };
     });
 
+    const filename = `${currentUser.username}_customers.xlsx`;
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Customers');
-    XLSX.writeFile(workbook, `${currentUser.username}_customers.xlsx`);
-    showSuccess('Customer database exported to Excel.');
+
+    const wopts = { bookType: 'xlsx', bookSST: false, type: 'array' };
+    const wbout = XLSX.write(workbook, wopts);
+    const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const file = new File([blob], filename, { type: blob.type });
+
+    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+      navigator.share({
+        files: [file],
+        title: 'Customer Export',
+        text: 'Exported customer records'
+      })
+      .then(() => showSuccess('Shared successfully.'))
+      .catch((err) => {
+        console.error('Sharing failed', err);
+        XLSX.writeFile(workbook, filename);
+      });
+    } else {
+      XLSX.writeFile(workbook, filename);
+      showSuccess('Customer database exported to Excel.');
+    }
   };
 
   // -------------------------------------------------------------
@@ -665,11 +1251,31 @@ export default function App() {
       ? `Worker_${profiles.find(pr => pr.id === targetWorkerId)?.username}`
       : (currentUser.role === 'WORKER' ? `My` : `Business`);
 
+    const filename = `${label}_collections_${selectedMonth.replace(/\s+/g, '_')}.xlsx`;
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Collections');
-    XLSX.writeFile(workbook, `${label}_collections_${selectedMonth.replace(/\s+/g, '_')}.xlsx`);
-    showSuccess('Collections sheet exported successfully.');
+
+    const wopts = { bookType: 'xlsx', bookSST: false, type: 'array' };
+    const wbout = XLSX.write(workbook, wopts);
+    const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const file = new File([blob], filename, { type: blob.type });
+
+    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+      navigator.share({
+        files: [file],
+        title: 'Monthly Collections Export',
+        text: `Exported collections report for ${selectedMonth}`
+      })
+      .then(() => showSuccess('Shared successfully.'))
+      .catch((err) => {
+        console.error('Sharing failed', err);
+        XLSX.writeFile(workbook, filename);
+      });
+    } else {
+      XLSX.writeFile(workbook, filename);
+      showSuccess('Collections sheet exported successfully.');
+    }
   };
 
   // APK Compiler Simulator Runner
@@ -716,12 +1322,111 @@ export default function App() {
     });
   };
 
+  const getMainActivityCode = () => {
+    const pkg = apkForm.packageName || 'com.kairos.cableapp';
+    return `package ${pkg};
+
+import android.os.Bundle;
+import android.view.WindowManager;
+import com.getcapacitor.BridgeActivity;
+
+public class MainActivity extends BridgeActivity {
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        // Force the app to run in fullscreen mode (hiding status bar)
+        getWindow().setFlags(
+            WindowManager.LayoutParams.FLAG_FULLSCREEN,
+            WindowManager.LayoutParams.FLAG_FULLSCREEN
+        );
+    }
+}`;
+  };
+
+  const getStringsXmlCode = () => {
+    const appName = apkForm.appName || 'Kairos Cable App';
+    const pkg = apkForm.packageName || 'com.kairos.cableapp';
+    return `<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">${appName}</string>
+    <string name="title_activity_main">${appName}</string>
+    <string name="package_name">${pkg}</string>
+    <string name="custom_url_scheme">${pkg}</string>
+</resources>`;
+  };
+
+  const getStylesXmlCode = () => {
+    const color = apkForm.primaryColor || '#4f46e5';
+    return `<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Base application theme. -->
+    <style name="AppTheme" parent="Theme.AppCompat.Light.DarkActionBar">
+        <item name="colorPrimary">${color}</item>
+        <item name="colorPrimaryDark">${color}</item>
+        <item name="colorAccent">${color}</item>
+    </style>
+
+    <style name="AppTheme.NoActionBar" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+        <item name="android:background">@null</item>
+        <item name="android:windowFullscreen">true</item>
+    </style>
+
+    <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
+        <item name="android:background">@drawable/splash</item>
+        <item name="android:windowFullscreen">true</item>
+    </style>
+</resources>`;
+  };
+
+  const getCapacitorConfigCode = () => {
+    const appName = apkForm.appName || 'Kairos Cable App';
+    const pkg = apkForm.packageName || 'com.kairos.cableapp';
+    return `{
+  "appId": "${pkg}",
+  "appName": "${appName}",
+  "webDir": "dist"
+}`;
+  };
+
+  const copyToClipboard = (text, label) => {
+    navigator.clipboard.writeText(text);
+    showSuccess(`${label} copied to clipboard!`);
+  };
+
+  const downloadAllConfigs = () => {
+    const files = [
+      { name: 'MainActivity.java', content: getMainActivityCode() },
+      { name: 'strings.xml', content: getStringsXmlCode() },
+      { name: 'styles.xml', content: getStylesXmlCode() },
+      { name: 'capacitor.config.json', content: getCapacitorConfigCode() }
+    ];
+    files.forEach(f => {
+      const blob = new Blob([f.content], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = f.name;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    });
+    showSuccess('All 4 native configuration files downloaded successfully.');
+  };
+
   // -------------------------------------------------------------
   // SELECTORS & FILTERS
   // -------------------------------------------------------------
   const filteredCustomers = useMemo(() => {
     let result = [...customers];
     
+    // Workers should only see their assigned customer accounts
+    if (currentUser && currentUser.role === 'WORKER') {
+      result = result.filter(c => c.assigned_worker_id === currentUser.id);
+    }
+
     if (searchQuery) {
       result = result.filter(c => 
         c.customer_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -733,7 +1438,7 @@ export default function App() {
 
     if (filterWorker) result = result.filter(c => c.assigned_worker_id === filterWorker);
     if (filterStatus) result = result.filter(c => c.connection_status === filterStatus);
-    if (filterStreet) result = result.filter(c => c.street_name === filterStreet);
+    if (filterStreet) result = result.filter(c => normalizeStreetName(c.street_name) === normalizeStreetName(filterStreet));
 
     if (customerViewMode === 'box_id') {
       result.sort((a, b) => a.box_id.localeCompare(b.box_id));
@@ -742,13 +1447,14 @@ export default function App() {
     }
 
     return result;
-  }, [customers, searchQuery, filterWorker, filterStatus, filterStreet, customerViewMode]);
+  }, [currentUser, customers, searchQuery, filterWorker, filterStatus, filterStreet, customerViewMode]);
 
   const customersGroupedByStreet = useMemo(() => {
     const groups = {};
     filteredCustomers.forEach(c => {
-      if (!groups[c.street_name]) groups[c.street_name] = [];
-      groups[c.street_name].push(c);
+      const streetKey = normalizeStreetName(c.street_name);
+      if (!groups[streetKey]) groups[streetKey] = [];
+      groups[streetKey].push(c);
     });
     return groups;
   }, [filteredCustomers]);
@@ -796,7 +1502,8 @@ export default function App() {
       if (p.status === 'Paid') {
         const cust = tenantCusts.find(c => c.id === p.customer_id);
         if (cust) {
-          streetPerformance[cust.street_name] = (streetPerformance[cust.street_name] || 0) + parseFloat(p.amount);
+          const streetKey = normalizeStreetName(cust.street_name);
+          streetPerformance[streetKey] = (streetPerformance[streetKey] || 0) + parseFloat(p.amount);
         }
       }
     });
@@ -856,6 +1563,46 @@ export default function App() {
     };
   };
 
+  if (showSplash) {
+    const bizName = import.meta.env.VITE_BUSINESS_NAME || currentBusiness?.business_name || 'Kairos Cable SaaS';
+    return (
+      <div style={{
+        height: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'radial-gradient(circle at 10% 20%, var(--neutral-800) 0%, var(--neutral-900) 90%)',
+        color: '#ffffff',
+        textAlign: 'center',
+        padding: '20px'
+      }}>
+        <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '64px',
+            height: '64px',
+            background: 'rgba(255, 255, 255, 0.08)',
+            borderRadius: 'var(--radius-md)',
+            color: 'var(--primary-400)',
+            marginBottom: '10px'
+          }}>
+            <Building2 size={32} />
+          </div>
+          <h2 style={{ fontSize: '12px', fontWeight: 700, color: 'var(--neutral-400)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+            App By Kairos Edio Technologies
+          </h2>
+          <h1 style={{ fontSize: '30px', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.03em', marginTop: '4px' }}>
+            {bizName}
+          </h1>
+          <div className="spinner" style={{ borderTopColor: 'var(--primary-500)', marginTop: '30px' }}></div>
+        </div>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '20px', background: 'var(--neutral-50)' }}>
@@ -867,6 +1614,7 @@ export default function App() {
 
   // --- PREMIUM LOGIN SCREEN ---
   if (!currentUser) {
+    const displayBizName = import.meta.env.VITE_BUSINESS_NAME || 'Kairos Cable SaaS';
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'radial-gradient(circle at 10% 20%, var(--neutral-800) 0%, var(--neutral-900) 90%)', padding: '20px', position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', width: '300px', height: '300px', background: 'rgba(79, 70, 229, 0.15)', filter: 'blur(80px)', top: '10%', left: '15%', borderRadius: '50%' }}></div>
@@ -877,7 +1625,7 @@ export default function App() {
             <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '56px', height: '56px', background: 'var(--primary-50)', borderRadius: 'var(--radius-md)', color: 'var(--primary-500)', marginBottom: '16px', boxShadow: '0 4px 12px rgba(79, 70, 229, 0.15)' }}>
               <Building2 size={28} />
             </div>
-            <h2 style={{ fontFamily: 'var(--font-primary)', fontWeight: 800, fontSize: '26px', color: 'var(--neutral-900)', letterSpacing: '-0.03em' }}>Kairos Cable SaaS</h2>
+            <h2 style={{ fontFamily: 'var(--font-primary)', fontWeight: 800, fontSize: '26px', color: 'var(--neutral-900)', letterSpacing: '-0.03em' }}>{displayBizName}</h2>
             <p style={{ fontSize: '13px', color: 'var(--neutral-400)', fontWeight: 600, marginTop: '4px' }}>Cable TV Operations & Collections Dashboard</p>
           </div>
 
@@ -990,9 +1738,6 @@ export default function App() {
                 <p style={{ fontSize: '13px', fontWeight: 700, color: '#ffffff' }}>{currentUser.name}</p>
                 <span style={{ fontSize: '11px', color: 'var(--neutral-400)', fontWeight: 600 }}>Platform Admin</span>
               </div>
-              <button onClick={toggleTheme} style={{ background: 'none', border: 'none', color: 'var(--neutral-400)', cursor: 'pointer' }}>
-                {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
-              </button>
             </div>
             <button onClick={handleLogout} className="btn btn-secondary" style={{ width: '100%', background: 'var(--neutral-800)', color: '#ffffff', border: 'none' }}>
               <LogOut size={16} /> Log Out System
@@ -1270,72 +2015,154 @@ export default function App() {
           )}
 
           {activeTab === 'apk-builder' && (
-            <div className="grid-cols-2 animate-fade-in">
-              <div className="card">
-                <h3 style={{ marginBottom: '20px', fontSize: '18px' }}>Native Wrapper compiler</h3>
-                <form onSubmit={handleBuildApk}>
-                  <div className="form-group">
-                    <label className="form-label">Target Operator Client</label>
-                    <select
-                      className="form-input form-select"
-                      value={apkForm.businessId}
-                      onChange={(e) => setApkForm({ ...apkForm, businessId: e.target.value })}
-                      required
-                    >
-                      <option value="">Choose a business client...</option>
-                      {businesses.filter(b => b.status === 'ACTIVE').map(b => (
-                        <option key={b.id} value={b.id}>{b.business_name}</option>
-                      ))}
-                    </select>
+            <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div className="grid-cols-2">
+                <div className="card">
+                  <h3 style={{ marginBottom: '20px', fontSize: '18px' }}>Native Wrapper compiler</h3>
+                  <form onSubmit={handleBuildApk}>
+                    <div className="form-group">
+                      <label className="form-label">Target Operator Client</label>
+                      <select
+                        className="form-input form-select"
+                        value={apkForm.businessId}
+                        onChange={(e) => setApkForm({ ...apkForm, businessId: e.target.value })}
+                        required
+                      >
+                        <option value="">Choose a business client...</option>
+                        {businesses.filter(b => b.status === 'ACTIVE').map(b => (
+                          <option key={b.id} value={b.id}>{b.business_name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Application Branding Name</label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        placeholder="e.g. City Cable App"
+                        value={apkForm.appName}
+                        onChange={(e) => setApkForm({ ...apkForm, appName: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Unique Package Domain Identifier</label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        placeholder="com.kairos.clientname"
+                        value={apkForm.packageName}
+                        onChange={(e) => setApkForm({ ...apkForm, packageName: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Primary Color Theme</label>
+                      <input
+                        type="color"
+                        className="form-input"
+                        value={apkForm.primaryColor}
+                        onChange={(e) => setApkForm({ ...apkForm, primaryColor: e.target.value })}
+                        style={{ height: '48px', padding: '4px' }}
+                      />
+                    </div>
+                    <button type="submit" disabled={buildingApk} className="btn btn-primary icon-align" style={{ width: '100%' }}>
+                      {buildingApk ? <RefreshCw className="spinner" /> : <Smartphone size={16} />}
+                      {buildingApk ? 'Building Package Files...' : 'Compile & Export Release APK'}
+                    </button>
+                  </form>
+                </div>
+
+                <div className="card" style={{ background: '#090d16', color: '#38bdf8', fontFamily: 'monospace', fontSize: '13px', overflowY: 'auto', maxHeight: '440px', border: '1px solid #1e293b', boxShadow: 'var(--shadow-md)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #1e293b', paddingBottom: '8px', marginBottom: '12px', color: '#64748b', fontWeight: 'bold' }}>
+                    <span>compiler-engine-logs.sh</span>
+                    <span style={{ color: buildingApk ? '#fbbf24' : '#34d399' }}>{buildingApk ? '● RUNNING' : '● SYSTEM_IDLE'}</span>
                   </div>
-                  <div className="form-group">
-                    <label className="form-label">Application Branding Name</label>
-                    <input
-                      type="text"
-                      className="form-input"
-                      placeholder="e.g. City Cable App"
-                      value={apkForm.appName}
-                      onChange={(e) => setApkForm({ ...apkForm, appName: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Unique Package Domain Identifier</label>
-                    <input
-                      type="text"
-                      className="form-input"
-                      placeholder="com.kairos.clientname"
-                      value={apkForm.packageName}
-                      onChange={(e) => setApkForm({ ...apkForm, packageName: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Primary Color Theme</label>
-                    <input
-                      type="color"
-                      className="form-input"
-                      value={apkForm.primaryColor}
-                      onChange={(e) => setApkForm({ ...apkForm, primaryColor: e.target.value })}
-                      style={{ height: '48px', padding: '4px' }}
-                    />
-                  </div>
-                  <button type="submit" disabled={buildingApk} className="btn btn-primary icon-align" style={{ width: '100%' }}>
-                    {buildingApk ? <RefreshCw className="spinner" /> : <Smartphone size={16} />}
-                    {buildingApk ? 'Building Package Files...' : 'Compile & Export Release APK'}
-                  </button>
-                </form>
+                  {apkLogs.length === 0 && <span style={{ color: '#475569' }}>Console idle. Awaiting build trigger...</span>}
+                  {apkLogs.map((log, index) => (
+                    <div key={index} style={{ marginBottom: '4px', whiteSpace: 'pre-wrap' }}>{log}</div>
+                  ))}
+                </div>
               </div>
 
-              <div className="card" style={{ background: '#090d16', color: '#38bdf8', fontFamily: 'monospace', fontSize: '13px', overflowY: 'auto', maxHeight: '440px', border: '1px solid #1e293b', boxShadow: 'var(--shadow-md)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #1e293b', paddingBottom: '8px', marginBottom: '12px', color: '#64748b', fontWeight: 'bold' }}>
-                  <span>compiler-engine-logs.sh</span>
-                  <span style={{ color: buildingApk ? '#fbbf24' : '#34d399' }}>{buildingApk ? '● RUNNING' : '● SYSTEM_IDLE'}</span>
+              {/* Dynamic Code Viewer Card */}
+              <div className="card">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid var(--neutral-100)', paddingBottom: '12px', flexWrap: 'wrap', gap: '12px' }}>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 800 }}>Generated Android Wrapper Configurations</h3>
+                    <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: 'var(--neutral-400)' }}>
+                      Below are the native configuration files dynamically generated for the selected branding options.
+                    </p>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button 
+                      type="button"
+                      onClick={() => {
+                        const content = activeCodeTab === 'MainActivity.java' ? getMainActivityCode() :
+                                        activeCodeTab === 'strings.xml' ? getStringsXmlCode() :
+                                        activeCodeTab === 'styles.xml' ? getStylesXmlCode() :
+                                        getCapacitorConfigCode();
+                        copyToClipboard(content, activeCodeTab);
+                      }}
+                      className="btn"
+                      style={{ padding: '6px 12px', fontSize: '11px', fontWeight: 'bold', borderRadius: '4px', background: 'var(--neutral-100)', color: 'var(--neutral-700)', border: 'none', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}
+                    >
+                      <Copy size={12} /> Copy Code
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={downloadAllConfigs}
+                      className="btn btn-primary"
+                      style={{ padding: '6px 12px', fontSize: '11px', fontWeight: 'bold', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}
+                    >
+                      <Download size={12} /> Download All Configs
+                    </button>
+                  </div>
                 </div>
-                {apkLogs.length === 0 && <span style={{ color: '#475569' }}>Console idle. Awaiting build trigger...</span>}
-                {apkLogs.map((log, index) => (
-                  <div key={index} style={{ marginBottom: '4px', whiteSpace: 'pre-wrap' }}>{log}</div>
-                ))}
+
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', overflowX: 'auto', paddingBottom: '4px' }}>
+                  {['MainActivity.java', 'strings.xml', 'styles.xml', 'capacitor.config.json'].map(tab => (
+                    <button
+                      key={tab}
+                      type="button"
+                      onClick={() => setActiveCodeTab(tab)}
+                      style={{
+                        padding: '6px 12px',
+                        fontSize: '12px',
+                        fontWeight: 'bold',
+                        borderRadius: '4px',
+                        border: 'none',
+                        cursor: 'pointer',
+                        background: activeCodeTab === tab ? 'var(--primary-500)' : 'var(--neutral-50)',
+                        color: activeCodeTab === tab ? '#ffffff' : 'var(--neutral-600)',
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      {tab}
+                    </button>
+                  ))}
+                </div>
+
+                <pre style={{
+                  background: '#090d16',
+                  color: '#e2e8f0',
+                  padding: '16px',
+                  borderRadius: 'var(--radius-md)',
+                  fontFamily: 'monospace',
+                  fontSize: '12.5px',
+                  overflowX: 'auto',
+                  border: '1px solid #1e293b',
+                  maxHeight: '350px',
+                  lineHeight: '1.5',
+                  margin: 0
+                }}>
+                  <code>
+                    {activeCodeTab === 'MainActivity.java' && getMainActivityCode()}
+                    {activeCodeTab === 'strings.xml' && getStringsXmlCode()}
+                    {activeCodeTab === 'styles.xml' && getStylesXmlCode()}
+                    {activeCodeTab === 'capacitor.config.json' && getCapacitorConfigCode()}
+                  </code>
+                </pre>
               </div>
             </div>
           )}
@@ -1545,14 +2372,6 @@ export default function App() {
   // =============================================================
   const mobileLayoutHTML = (
     <div className="mobile-layout">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 20px', background: 'var(--neutral-100)', fontSize: '11px', fontWeight: 800, color: 'var(--neutral-400)' }}>
-        <span>17:23 PM</span>
-        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-          <Wifi size={12} />
-          <Battery size={14} />
-        </div>
-      </div>
-
       <header className="mobile-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <div style={{ background: 'var(--primary-50)', color: 'var(--primary-500)', padding: '10px', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-sm)' }}>
@@ -1563,14 +2382,10 @@ export default function App() {
               {currentUser.role === 'OWNER' ? t('dashboard') : t('dashboard')}
             </h2>
             <span style={{ fontSize: '11px', color: 'var(--neutral-400)', display: 'block', fontWeight: 600 }}>
-              City Cable Network
+              {import.meta.env.VITE_BUSINESS_NAME || currentBusiness?.business_name || 'City Cable Network'}
             </span>
           </div>
         </div>
-
-        <button onClick={toggleTheme} style={{ background: 'none', border: 'none', color: 'var(--neutral-400)', padding: '6px' }}>
-          {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
-        </button>
       </header>
 
       {successMsg && (
@@ -1583,6 +2398,31 @@ export default function App() {
         <div style={{ background: 'var(--danger)', color: '#ffffff', padding: '10px 16px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700 }}>
           <ShieldAlert size={16} />
           <span>{errorMsg}</span>
+        </div>
+      )}
+
+      {offlineQueue.length > 0 && (
+        <div style={{ background: '#fffbeb', borderBottom: '1px solid #fef3c7', padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12.5px', color: '#92400e', fontWeight: 700 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <AlertCircle size={16} />
+            <span>
+              {language === 'ta' 
+                ? `${offlineQueue.length} வசூல் ஒத்திசைவுக்காக காத்திருக்கிறது.` 
+                : `${offlineQueue.length} collections pending sync.`}
+            </span>
+          </div>
+          <button 
+            onClick={() => triggerOfflineSync()}
+            disabled={syncingOffline}
+            className="btn"
+            style={{ padding: '6px 12px', fontSize: '11px', fontWeight: 'bold', borderRadius: '4px', background: '#d97706', color: '#ffffff', border: 'none', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}
+          >
+            {syncingOffline ? (
+              <RefreshCw size={12} className="spinner" />
+            ) : (
+              language === 'ta' ? 'ஒத்திசை' : 'Sync Now'
+            )}
+          </button>
         </div>
       )}
 
@@ -1600,14 +2440,21 @@ export default function App() {
                   </button>
                 </div>
 
+                <div style={{ marginBottom: '20px', padding: '16px', background: 'var(--primary-50)', borderRadius: 'var(--radius-md)', border: '1px solid var(--primary-100)' }}>
+                  <h4 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--primary-900)', margin: 0 }}>
+                    {getGreeting()}, {currentUser.name}
+                  </h4>
+                  <p style={{ fontSize: '12px', color: 'var(--primary-600)', margin: '4px 0 0 0' }}>{t('welcome')}!</p>
+                </div>
+
                 <div className="grid-cols-2" style={{ gap: '12px', marginBottom: '16px' }}>
                   <div className="card" style={{ padding: '16px' }}>
                     <span className="card-title" style={{ fontSize: '10px' }}>{t('todayEarning')}</span>
-                    <div className="card-value" style={{ fontSize: '22px', color: 'var(--success)' }}>₹{stats?.globalTodayCollected}</div>
+                    <div className="card-value" style={{ fontSize: '22px', color: 'var(--success)' }}>₹{formatAmount(stats?.globalTodayCollected)}</div>
                   </div>
                   <div className="card" style={{ padding: '16px' }}>
                     <span className="card-title" style={{ fontSize: '10px' }}>{t('totalEarning')}</span>
-                    <div className="card-value" style={{ fontSize: '22px', color: 'var(--primary-600)' }}>₹{stats?.globalTotalCollected}</div>
+                    <div className="card-value" style={{ fontSize: '22px', color: 'var(--primary-600)' }}>₹{formatAmount(stats?.globalTotalCollected)}</div>
                   </div>
                 </div>
 
@@ -1635,8 +2482,8 @@ export default function App() {
                           <span style={{ fontSize: '11px', color: 'var(--neutral-400)', fontWeight: 600 }}>Collector</span>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
-                          <span style={{ color: 'var(--neutral-500)' }}>{t('todayEarning')}: <strong style={{ color: 'var(--success)' }}>₹{todayColl}</strong></span>
-                          <span style={{ color: 'var(--neutral-500)' }}>{t('totalEarning')}: <strong style={{ color: 'var(--primary-600)' }}>₹{totalColl}</strong></span>
+                          <span style={{ color: 'var(--neutral-500)' }}>{t('todayEarning')}: <strong style={{ color: 'var(--success)' }}>₹{formatAmount(todayColl)}</strong></span>
+                          <span style={{ color: 'var(--neutral-500)' }}>{t('totalEarning')}: <strong style={{ color: 'var(--primary-600)' }}>₹{formatAmount(totalColl)}</strong></span>
                         </div>
                       </div>
                     );
@@ -1650,7 +2497,7 @@ export default function App() {
                     <div key={street} style={{ marginBottom: '12px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '4px', fontWeight: 600 }}>
                         <span>{street}</span>
-                        <strong>₹{collected}</strong>
+                        <strong>₹{formatAmount(collected)}</strong>
                       </div>
                       <div className="progress-bar-container" style={{ height: '6px' }}>
                         <div className="progress-bar-fill" style={{ width: `${(collected / (stats?.reportCollected || 1)) * 100}%`, background: 'var(--accent-500)' }}></div>
@@ -1662,11 +2509,18 @@ export default function App() {
             ) : (
               // WORKER VIEW DASHBOARD
               <div>
+                <div style={{ marginBottom: '20px', padding: '16px', background: 'var(--primary-50)', borderRadius: 'var(--radius-md)', border: '1px solid var(--primary-100)' }}>
+                  <h4 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--primary-900)', margin: 0 }}>
+                    {getGreeting()}, {currentUser.name}
+                  </h4>
+                  <p style={{ fontSize: '12px', color: 'var(--primary-600)', margin: '4px 0 0 0' }}>{t('welcome')}!</p>
+                </div>
+
                 <div style={{ marginBottom: '24px', background: 'linear-gradient(135deg, var(--primary-500) 0%, var(--primary-700) 100%)', color: '#ffffff', borderRadius: 'var(--radius-lg)', padding: '24px', boxShadow: 'var(--shadow-md)', position: 'relative', overflow: 'hidden' }}>
                   <p style={{ opacity: 0.8, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>{t('todayEarning')}</p>
-                  <h3 style={{ fontSize: '32px', fontFamily: 'var(--font-primary)', fontWeight: 800, marginTop: '4px' }}>₹{stats?.myTodayColl}</h3>
+                  <h3 style={{ fontSize: '32px', fontFamily: 'var(--font-primary)', fontWeight: 800, marginTop: '4px' }}>₹{formatAmount(stats?.myTodayColl)}</h3>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '16px', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.15)', fontSize: '13px', fontWeight: 600 }}>
-                    <span>{t('totalEarning')}: <strong>₹{stats?.myTotalColl}</strong></span>
+                    <span>{t('totalEarning')}: <strong>₹{formatAmount(stats?.myTotalColl)}</strong></span>
                     <span>{t('customers')}: <strong>{stats?.myCustomersCount}</strong></span>
                   </div>
                 </div>
@@ -1675,13 +2529,19 @@ export default function App() {
                 {payments.filter(p => p.worker_id === currentUser.id).slice(0, 5).map(pay => {
                   const cust = customers.find(c => c.id === pay.customer_id);
                   return (
-                    <div key={pay.id} className="list-item">
+                    <div 
+                      key={pay.id} 
+                      className="list-item"
+                      style={{ cursor: 'pointer' }}
+                      onClick={() => handleOpenEditPayment(pay)}
+                    >
                       <div className="list-item-main">
                         <span className="list-item-title">{cust ? cust.customer_name : 'Customer'}</span>
-                        <span className="list-item-subtitle">{pay.payment_period} • {t('boxId')}: {pay.box_id}</span>
+                        <span className="list-item-subtitle">{formatPeriodTranslated(pay.payment_period)} • {t('boxId')}: {pay.box_id}</span>
                       </div>
-                      <div>
-                        <strong style={{ color: 'var(--success)', fontSize: '15px' }}>₹{pay.amount}</strong>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <strong style={{ color: 'var(--success)', fontSize: '15px' }}>₹{formatAmount(pay.amount)}</strong>
+                        <Edit2 size={12} style={{ color: 'var(--neutral-400)' }} />
                       </div>
                     </div>
                   );
@@ -1754,13 +2614,13 @@ export default function App() {
 
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontSize: '12px', color: 'var(--neutral-400)', fontWeight: 600 }}>
-                <span>Showing {filteredCustomers.length} {t('customers')}</span>
+                <span>{t('showing')} {filteredCustomers.length} {t('customers')}</span>
               </div>
 
               {filteredCustomers.length === 0 ? (
                 <div className="card" style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--neutral-400)' }}>
                   <Info size={32} style={{ margin: '0 auto 12px auto' }} />
-                  <p>No customers matching filters.</p>
+                  <p>{t('noCustomersFound')}</p>
                 </div>
               ) : customerViewMode === 'street' ? (
                 Object.entries(customersGroupedByStreet).map(([streetName, streetCustomers]) => {
@@ -1799,52 +2659,70 @@ export default function App() {
                       
                       {isExpanded && (
                         <div className="animate-fade-in" style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                          {streetCustomers.map(cust => (
-                            <div
-                              key={cust.id}
-                              className="list-item"
-                              onClick={() => {
-                                setSelectedCustomer(cust);
-                                setModalType('customer_details');
-                              }}
-                              style={{ cursor: 'pointer', padding: '14px 18px', marginBottom: 0 }}
-                            >
-                              <div className="list-item-main">
-                                <span className="list-item-title" style={{ fontSize: '14px' }}>{cust.customer_name}</span>
-                                <span className="list-item-subtitle">{cust.street_name} • {t('boxId')}: {cust.box_id}</span>
+                          {streetCustomers.map(cust => {
+                            const unpaid = getDueMonths(cust, payments);
+                            return (
+                              <div
+                                key={cust.id}
+                                className="list-item"
+                                onClick={() => {
+                                  setSelectedCustomer(cust);
+                                  setModalType('customer_details');
+                                }}
+                                style={{ cursor: 'pointer', padding: '14px 18px', marginBottom: 0 }}
+                              >
+                                <div className="list-item-main">
+                                  <span className="list-item-title" style={{ fontSize: '14px' }}>{cust.customer_name}</span>
+                                  <span className="list-item-subtitle" style={{ display: 'block', marginTop: '2px' }}>📍 {cust.street_name}</span>
+                                  <span className="list-item-subtitle" style={{ display: 'block' }}>{t('boxId')}: {cust.box_id}</span>
+                                  {unpaid.length === 0 ? (
+                                    <span className="badge badge-paid" style={{ fontSize: '10px', marginTop: '6px', padding: '3px 8px' }}>{t('paid')}</span>
+                                  ) : (
+                                    <span className="badge badge-pending" style={{ fontSize: '10px', marginTop: '6px', padding: '3px 8px' }}>{t('due')}: {unpaid.map(formatPeriodTranslated).join(', ')}</span>
+                                  )}
+                                </div>
+                                <span className={`badge ${cust.connection_status === 'ACTIVE' ? 'badge-active' : 'badge-inactive'}`} style={{ fontSize: '11px' }}>
+                                  {cust.connection_status === 'ACTIVE' ? t('active') : t('inactive')}
+                                </span>
                               </div>
-                              <span className={`badge ${cust.connection_status === 'ACTIVE' ? 'badge-active' : 'badge-inactive'}`} style={{ fontSize: '11px' }}>
-                                {cust.connection_status === 'ACTIVE' ? t('active') : t('inactive')}
-                              </span>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       )}
                     </div>
                   );
                 })
               ) : (
-                filteredCustomers.map(cust => (
-                  <div
-                    key={cust.id}
-                    className="list-item"
-                    onClick={() => {
-                      setSelectedCustomer(cust);
-                      setModalType('customer_details');
-                    }}
-                    style={{ cursor: 'pointer' }}
-                  >
-                    <div className="list-item-main">
-                      <span className="list-item-title">{cust.customer_name}</span>
-                      <span className="list-item-subtitle">{cust.street_name} • {t('boxId')}: {cust.box_id}</span>
+                filteredCustomers.map(cust => {
+                  const unpaid = getDueMonths(cust, payments);
+                  return (
+                    <div
+                      key={cust.id}
+                      className="list-item"
+                      onClick={() => {
+                        setSelectedCustomer(cust);
+                        setModalType('customer_details');
+                      }}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <div className="list-item-main">
+                        <span className="list-item-title">{cust.customer_name}</span>
+                        <span className="list-item-subtitle" style={{ display: 'block', marginTop: '2px' }}>📍 {cust.street_name}</span>
+                        <span className="list-item-subtitle" style={{ display: 'block' }}>{t('boxId')}: {cust.box_id}</span>
+                        {unpaid.length === 0 ? (
+                          <span className="badge badge-paid" style={{ fontSize: '10px', marginTop: '6px', padding: '3px 8px' }}>{t('paid')}</span>
+                        ) : (
+                          <span className="badge badge-pending" style={{ fontSize: '10px', marginTop: '6px', padding: '3px 8px' }}>{t('due')}: {unpaid.map(formatPeriodTranslated).join(', ')}</span>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
+                        <span className={`badge ${cust.connection_status === 'ACTIVE' ? 'badge-active' : 'badge-inactive'}`}>
+                          {cust.connection_status === 'ACTIVE' ? t('active') : t('inactive')}
+                        </span>
+                      </div>
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
-                      <span className={`badge ${cust.connection_status === 'ACTIVE' ? 'badge-active' : 'badge-inactive'}`}>
-                        {cust.connection_status === 'ACTIVE' ? t('active') : t('inactive')}
-                      </span>
-                    </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>
@@ -1855,17 +2733,42 @@ export default function App() {
           <div className="animate-fade-in">
             <h3 style={{ fontSize: '16px', fontWeight: 800, marginBottom: '16px' }}>{t('ledger')}</h3>
             <div className="card" style={{ padding: '0 16px' }}>
-              {payments.map(pay => {
+              {(currentUser.role === 'WORKER' ? payments.filter(p => p.worker_id === currentUser.id) : payments).map(pay => {
                 const cust = customers.find(c => c.id === pay.customer_id);
                 return (
-                  <div key={pay.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '16px 0', borderBottom: '1px solid var(--neutral-100)' }}>
-                    <div>
-                      <p style={{ fontSize: '13px', fontWeight: 700 }}>{cust ? cust.customer_name : 'Customer Record'}</p>
-                      <span style={{ fontSize: '11px', color: 'var(--neutral-400)' }}>{t('boxId')}: {pay.box_id} • {pay.payment_period}</span>
+                  <div 
+                    key={pay.id} 
+                    style={{ display: 'flex', justifyContent: 'space-between', padding: '16px 0', borderBottom: '1px solid var(--neutral-100)', cursor: 'pointer' }}
+                  >
+                    <div onClick={() => handleOpenEditPayment(pay)} style={{ flex: 1 }}>
+                      <p style={{ fontSize: '13px', fontWeight: 700 }}>
+                        {cust ? cust.customer_name : t('customerRecord')}
+                        {pay.sync_status === 'PENDING_SYNC' && (
+                          <span style={{ color: '#ef4444', fontSize: '10px', marginLeft: '8px', fontWeight: 'bold' }}>
+                            ({language === 'ta' ? 'ஆஃப்லைன்' : 'Offline'})
+                          </span>
+                        )}
+                      </p>
+                      <span style={{ fontSize: '11px', color: 'var(--neutral-400)' }}>{t('boxId')}: {pay.box_id} • {formatPeriodTranslated(pay.payment_period)}</span>
                     </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <p style={{ fontSize: '13px', fontWeight: 800, color: 'var(--success)' }}>₹{pay.amount}</p>
-                      <span style={{ fontSize: '10px', color: 'var(--neutral-400)' }}>{pay.payment_date}</span>
+                    <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          shareReceiptWhatsApp(pay, cust);
+                        }}
+                        style={{ background: 'none', border: 'none', color: '#25D366', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '6px' }}
+                        title="Share on WhatsApp"
+                      >
+                        <Share2 size={16} />
+                      </button>
+                      <div onClick={() => handleOpenEditPayment(pay)} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div>
+                          <p style={{ fontSize: '13px', fontWeight: 800, color: 'var(--success)' }}>₹{formatAmount(pay.amount)}</p>
+                          <span style={{ fontSize: '10px', color: 'var(--neutral-400)' }}>{pay.payment_date}</span>
+                        </div>
+                        <Edit2 size={14} style={{ color: 'var(--neutral-400)' }} />
+                      </div>
                     </div>
                   </div>
                 );
@@ -1955,8 +2858,8 @@ export default function App() {
                             <span className="badge badge-active" style={{ fontSize: '10px', padding: '2px 8px' }}>{t('active')}</span>
                           </div>
                           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--neutral-400)', marginTop: '8px' }}>
-                            <span>Today: <strong style={{ color: 'var(--success)' }}>₹{metrics.todayCollected}</strong></span>
-                            <span>Total: <strong style={{ color: 'var(--primary-600)' }}>₹{metrics.totalCollected}</strong></span>
+                            <span>Today: <strong style={{ color: 'var(--success)' }}>₹{formatAmount(metrics.todayCollected)}</strong></span>
+                            <span>Total: <strong style={{ color: 'var(--primary-600)' }}>₹{formatAmount(metrics.totalCollected)}</strong></span>
                             <span>Subscribers: <strong>{metrics.customersCount}</strong></span>
                           </div>
                         </div>
@@ -1978,16 +2881,16 @@ export default function App() {
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px', textAlign: 'center', marginBottom: '12px' }}>
                           <div>
                             <span style={{ fontSize: '10px', color: 'var(--neutral-400)', display: 'block', textTransform: 'uppercase', fontWeight: 700 }}>{t('todayEarning')}</span>
-                            <strong style={{ fontSize: '16px', color: 'var(--success)' }}>₹{myMetrics.todayCollected}</strong>
+                            <strong style={{ fontSize: '16px', color: 'var(--success)' }}>₹{formatAmount(myMetrics.todayCollected)}</strong>
                           </div>
                           <div>
                             <span style={{ fontSize: '10px', color: 'var(--neutral-400)', display: 'block', textTransform: 'uppercase', fontWeight: 700 }}>{t('totalEarning')}</span>
-                            <strong style={{ fontSize: '16px', color: 'var(--primary-600)' }}>₹{myMetrics.totalCollected}</strong>
+                            <strong style={{ fontSize: '16px', color: 'var(--primary-600)' }}>₹{formatAmount(myMetrics.totalCollected)}</strong>
                           </div>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--neutral-100)', paddingTop: '10px', fontSize: '12px' }}>
                           <span>My Collections for <strong>{reportMonth}</strong>:</span>
-                          <strong style={{ color: 'var(--accent-600)' }}>₹{myMetrics.collected}</strong>
+                          <strong style={{ color: 'var(--accent-600)' }}>₹{formatAmount(myMetrics.collected)}</strong>
                         </div>
                       </div>
 
@@ -2001,7 +2904,7 @@ export default function App() {
                                 <span style={{ fontWeight: 'bold' }}>{cust ? cust.customer_name : 'Customer'}</span>
                                 <span style={{ color: 'var(--neutral-400)', display: 'block' }}>{t('boxId')}: {p.box_id}</span>
                               </div>
-                              <span style={{ color: 'var(--success)', fontWeight: 'bold' }}>₹{p.amount}</span>
+                              <span style={{ color: 'var(--success)', fontWeight: 'bold' }}>₹{formatAmount(p.amount)}</span>
                             </div>
                           );
                         })}
@@ -2065,6 +2968,17 @@ export default function App() {
                   value={customerForm.phone_number}
                   onChange={(e) => setCustomerForm({ ...customerForm, phone_number: e.target.value })}
                 />
+              </div>
+              <div className="form-group">
+                <label className="form-label">{t('connectionStatus')}</label>
+                <select
+                  className="form-input form-select"
+                  value={customerForm.connection_status}
+                  onChange={(e) => setCustomerForm({ ...customerForm, connection_status: e.target.value })}
+                >
+                  <option value="ACTIVE">ACTIVE</option>
+                  <option value="INACTIVE">INACTIVE</option>
+                </select>
               </div>
               {currentUser.role === 'OWNER' && (
                 <div className="form-group">
@@ -2197,31 +3111,38 @@ export default function App() {
             <div style={{ background: 'var(--neutral-50)', border: '1px solid var(--neutral-200)', borderRadius: 'var(--radius-md)', padding: '18px', marginBottom: '22px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px' }}>
                 <MapPin size={16} style={{ color: 'var(--neutral-400)' }} />
-                <span style={{ color: 'var(--neutral-500)' }}>Street:</span>
+                <span style={{ color: 'var(--neutral-500)' }}>{t('streetName')}:</span>
                 <strong style={{ marginLeft: 'auto', color: 'var(--neutral-900)' }}>{selectedCustomer.street_name}</strong>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px' }}>
                 <Globe size={16} style={{ color: 'var(--neutral-400)' }} />
-                <span style={{ color: 'var(--neutral-500)' }}>Phone Number:</span>
+                <span style={{ color: 'var(--neutral-500)' }}>{t('phoneNumber')}:</span>
                 <strong style={{ marginLeft: 'auto', color: 'var(--neutral-900)' }}>{selectedCustomer.phone_number || 'N/A'}</strong>
               </div>
               {currentUser.role === 'OWNER' && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px' }}>
                   <Users size={16} style={{ color: 'var(--neutral-400)' }} />
-                  <span style={{ color: 'var(--neutral-500)' }}>Assigned Worker:</span>
+                  <span style={{ color: 'var(--neutral-500)' }}>{t('assignWorker')}:</span>
                   <strong style={{ marginLeft: 'auto', color: 'var(--neutral-900)' }}>
                     {profiles.find(p => p.id === selectedCustomer.assigned_worker_id)?.name || t('unassigned')}
                   </strong>
                 </div>
               )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px' }}>
+                <AlertCircle size={16} style={{ color: 'var(--warning)' }} />
+                <span style={{ color: 'var(--neutral-500)' }}>{t('unpaidMonths')}:</span>
+                <strong style={{ marginLeft: 'auto', color: 'var(--warning)', fontSize: '11px', textAlign: 'right', maxWidth: '60%' }}>
+                  {getDueMonths(selectedCustomer, payments).map(formatPeriodTranslated).join(', ') || t('noneFullyPaid')}
+                </strong>
+              </div>
               {selectedCustomer.notes && (
                 <div style={{ background: '#ffffff', border: '1px solid var(--neutral-200)', padding: '10px 14px', borderRadius: 'var(--radius-sm)', marginTop: '4px', fontSize: '12.5px', color: 'var(--neutral-600)', fontStyle: 'italic' }}>
-                  <strong>Notes:</strong> {selectedCustomer.notes}
+                  <strong>{t('notes')}:</strong> {selectedCustomer.notes}
                 </div>
               )}
             </div>
 
-            <h4 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}>Payment Actions</h4>
+            <h4 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}>{t('paymentActions')}</h4>
             <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
               <button
                 onClick={() => {
@@ -2236,7 +3157,17 @@ export default function App() {
               <button
                 onClick={() => {
                   setModalType('record_bulk');
-                  setBulkPaymentForm({ periods: [], amount: '350', notes: '' });
+                  const curDate = new Date();
+                  const curM = curDate.getMonth().toString();
+                  const curY = curDate.getFullYear().toString();
+                  setBulkPaymentRange({
+                    fromMonth: curM,
+                    fromYear: curY,
+                    toMonth: curM,
+                    toYear: curY
+                  });
+                  const periods = getMonthsInRange(curM, curY, curM, curY);
+                  setBulkPaymentForm({ periods, amount: (periods.length * 350).toString(), notes: '' });
                 }}
                 className="btn btn-secondary"
                 style={{ flex: 1, padding: '10px 0', fontSize: '13px' }}
@@ -2275,19 +3206,44 @@ export default function App() {
               )}
             </div>
 
-            <h4 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}>Payment History</h4>
+            <h4 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}>{t('paymentHistory')}</h4>
             <div style={{ maxHeight: '160px', overflowY: 'auto' }}>
               {payments.filter(p => p.customer_id === selectedCustomer.id).map(p => (
-                <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--neutral-100)', fontSize: '12px' }}>
-                  <span>{p.payment_period} ({p.payment_date})</span>
-                  <strong style={{ color: p.status === 'Paid' ? 'var(--success)' : 'var(--warning)' }}>
-                    ₹{p.amount} ({p.status})
-                  </strong>
+                <div 
+                  key={p.id} 
+                  style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--neutral-100)', fontSize: '12px', cursor: 'pointer' }}
+                >
+                  <span onClick={() => handleOpenEditPayment(p)} style={{ flex: 1 }}>
+                    {formatPeriodTranslated(p.payment_period)} ({p.payment_date})
+                    {p.sync_status === 'PENDING_SYNC' && (
+                      <span style={{ color: '#ef4444', fontSize: '10px', marginLeft: '6px', fontWeight: 'bold' }}>
+                        ({language === 'ta' ? 'ஆஃப்லைன்' : 'Offline'})
+                      </span>
+                    )}
+                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        shareReceiptWhatsApp(p, selectedCustomer);
+                      }}
+                      style={{ background: 'none', border: 'none', color: '#25D366', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '4px' }}
+                      title="Share on WhatsApp"
+                    >
+                      <Share2 size={13} />
+                    </button>
+                    <div onClick={() => handleOpenEditPayment(p)} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <strong style={{ color: p.status === 'Paid' ? 'var(--success)' : 'var(--warning)' }}>
+                        ₹{formatAmount(p.amount)} ({p.status === 'Paid' ? t('paid') : t('pending')})
+                      </strong>
+                      <Edit2 size={12} style={{ color: 'var(--neutral-400)' }} />
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
 
-            <button type="button" onClick={() => setModalType(null)} className="btn btn-secondary" style={{ width: '100%', marginTop: '24px' }}>Close</button>
+            <button type="button" onClick={() => setModalType(null)} className="btn btn-secondary" style={{ width: '100%', marginTop: '24px' }}>{t('close')}</button>
           </div>
         </div>
       )}
@@ -2344,31 +3300,93 @@ export default function App() {
         <div className="modal-overlay">
           <div className="mobile-sheet animate-slide-in" style={{ maxHeight: '90vh', overflowY: 'auto' }}>
             <div className="sheet-handle"></div>
-            <h3 style={{ marginBottom: '16px' }}>Bulk Payments Log</h3>
+            <h3 style={{ marginBottom: '16px' }}>{t('bulkPaymentsLog')}</h3>
             <form onSubmit={handleBulkPayment}>
-              <div className="form-group">
-                <label className="form-label">Select Paid Months/Periods</label>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '160px', overflowY: 'auto', background: 'var(--neutral-50)', padding: '12px', borderRadius: 'var(--radius-sm)' }}>
-                  {['January 2026', 'February 2026', 'March 2026', 'April 2026', 'May 2026', 'June 2026', 'July 2026', 'August 2026', 'September 2026', 'October 2026', 'November 2026', 'December 2026'].map(m => {
-                    const isChecked = bulkPaymentForm.periods.includes(m);
-                    return (
-                      <label key={m} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', cursor: 'pointer', fontWeight: 600 }}>
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => {
-                            const updated = isChecked
-                              ? bulkPaymentForm.periods.filter(x => x !== m)
-                              : [...bulkPaymentForm.periods, m];
-                            setBulkPaymentForm({ ...bulkPaymentForm, periods: updated, amount: (updated.length * 350).toString() });
-                          }}
-                        />
-                        <span>{m}</span>
-                      </label>
-                    );
-                  })}
+              
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                <div>
+                  <label className="form-label">{t('fromMonth')}</label>
+                  <select
+                    className="form-input form-select"
+                    value={bulkPaymentRange.fromMonth}
+                    onChange={(e) => {
+                      const newRange = { ...bulkPaymentRange, fromMonth: e.target.value };
+                      setBulkPaymentRange(newRange);
+                      const periods = getMonthsInRange(newRange.fromMonth, newRange.fromYear, newRange.toMonth, newRange.toYear);
+                      setBulkPaymentForm({ ...bulkPaymentForm, periods, amount: (periods.length * 350).toString() });
+                    }}
+                  >
+                    {MONTHS_ORDER.map((m, idx) => (
+                      <option key={m} value={idx}>{t(m.toLowerCase())}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="form-label">{t('fromYear')}</label>
+                  <select
+                    className="form-input form-select"
+                    value={bulkPaymentRange.fromYear}
+                    onChange={(e) => {
+                      const newRange = { ...bulkPaymentRange, fromYear: e.target.value };
+                      setBulkPaymentRange(newRange);
+                      const periods = getMonthsInRange(newRange.fromMonth, newRange.fromYear, newRange.toMonth, newRange.toYear);
+                      setBulkPaymentForm({ ...bulkPaymentForm, periods, amount: (periods.length * 350).toString() });
+                    }}
+                  >
+                    {['2025', '2026', '2027', '2028', '2029', '2030'].map(y => (
+                      <option key={y} value={y}>{y}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                <div>
+                  <label className="form-label">{t('toMonth')}</label>
+                  <select
+                    className="form-input form-select"
+                    value={bulkPaymentRange.toMonth}
+                    onChange={(e) => {
+                      const newRange = { ...bulkPaymentRange, toMonth: e.target.value };
+                      setBulkPaymentRange(newRange);
+                      const periods = getMonthsInRange(newRange.fromMonth, newRange.fromYear, newRange.toMonth, newRange.toYear);
+                      setBulkPaymentForm({ ...bulkPaymentForm, periods, amount: (periods.length * 350).toString() });
+                    }}
+                  >
+                    {MONTHS_ORDER.map((m, idx) => (
+                      <option key={m} value={idx}>{t(m.toLowerCase())}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="form-label">{t('toYear')}</label>
+                  <select
+                    className="form-input form-select"
+                    value={bulkPaymentRange.toYear}
+                    onChange={(e) => {
+                      const newRange = { ...bulkPaymentRange, toYear: e.target.value };
+                      setBulkPaymentRange(newRange);
+                      const periods = getMonthsInRange(newRange.fromMonth, newRange.fromYear, newRange.toMonth, newRange.toYear);
+                      setBulkPaymentForm({ ...bulkPaymentForm, periods, amount: (periods.length * 350).toString() });
+                    }}
+                  >
+                    {['2025', '2026', '2027', '2028', '2029', '2030'].map(y => (
+                      <option key={y} value={y}>{y}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '16px', padding: '12px', background: 'var(--neutral-50)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--neutral-200)', fontSize: '13px' }}>
+                <span style={{ color: 'var(--neutral-500)' }}>Periods to be paid ({bulkPaymentForm.periods.length}):</span>
+                <strong style={{ display: 'block', color: 'var(--neutral-800)', marginTop: '4px' }}>
+                  {bulkPaymentForm.periods.length > 0 
+                    ? bulkPaymentForm.periods.map(formatPeriodTranslated).join(', ') 
+                    : language === 'ta' ? 'தவறான கால அளவு தேர்ந்தெடுக்கப்பட்டது' : 'No periods in range'
+                  }
+                </strong>
+              </div>
+
               <div className="form-group">
                 <label className="form-label">{t('amount')}</label>
                 <input
@@ -2390,8 +3408,73 @@ export default function App() {
                 />
               </div>
               <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
-                <button type="button" onClick={() => setModalType('customer_details')} className="btn btn-secondary" style={{ flex: 1 }}>Back</button>
-                <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>Log Bulk Payments</button>
+                <button type="button" onClick={() => setModalType('customer_details')} className="btn btn-secondary" style={{ flex: 1 }}>{t('back')}</button>
+                <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>{t('logBulkPayments')}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Recorded Payment Modal */}
+      {modalType === 'edit_payment' && selectedPayment && (
+        <div className="modal-overlay">
+          <div className="mobile-sheet animate-slide-in">
+            <div className="sheet-handle"></div>
+            <h3 style={{ marginBottom: '16px' }}>{t('editPayment')}</h3>
+            <form onSubmit={handleUpdatePayment}>
+              <div className="form-group">
+                <label className="form-label">{t('amount')}</label>
+                <input
+                  type="number"
+                  className="form-input"
+                  value={paymentForm.amount}
+                  onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">{t('period')}</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={paymentForm.period}
+                  onChange={(e) => setPaymentForm({ ...paymentForm, period: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">{t('paymentDate')}</label>
+                <input
+                  type="date"
+                  className="form-input"
+                  value={paymentForm.date}
+                  onChange={(e) => setPaymentForm({ ...paymentForm, date: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">{t('notes')}</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={paymentForm.notes}
+                  onChange={(e) => setPaymentForm({ ...paymentForm, notes: e.target.value })}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
+                <button 
+                  type="button" 
+                  onClick={() => {
+                    setModalType(selectedCustomer ? 'customer_details' : 'payments');
+                    setSelectedPayment(null);
+                  }} 
+                  className="btn btn-secondary" 
+                  style={{ flex: 1 }}
+                >
+                  {t('cancel')}
+                </button>
+                <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>{t('saveChanges')}</button>
               </div>
             </form>
           </div>
@@ -2421,11 +3504,11 @@ export default function App() {
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', textAlign: 'center', marginBottom: '12px' }}>
                       <div>
                         <span style={{ fontSize: '10px', color: 'var(--neutral-400)', display: 'block', textTransform: 'uppercase', fontWeight: 700 }}>{t('todayEarning')}</span>
-                        <strong style={{ fontSize: '15px', color: 'var(--success)' }}>₹{workerMetrics.todayCollected}</strong>
+                        <strong style={{ fontSize: '15px', color: 'var(--success)' }}>₹{formatAmount(workerMetrics.todayCollected)}</strong>
                       </div>
                       <div>
                         <span style={{ fontSize: '10px', color: 'var(--neutral-400)', display: 'block', textTransform: 'uppercase', fontWeight: 700 }}>{t('totalEarning')}</span>
-                        <strong style={{ fontSize: '15px', color: 'var(--primary-600)' }}>₹{workerMetrics.totalCollected}</strong>
+                        <strong style={{ fontSize: '15px', color: 'var(--primary-600)' }}>₹{formatAmount(workerMetrics.totalCollected)}</strong>
                       </div>
                       <div>
                         <span style={{ fontSize: '10px', color: 'var(--neutral-400)', display: 'block', textTransform: 'uppercase', fontWeight: 700 }}>Subscribers</span>
@@ -2434,7 +3517,7 @@ export default function App() {
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--neutral-100)', paddingTop: '10px', fontSize: '12px' }}>
                       <span>Collections for <strong>{reportMonth}</strong>:</span>
-                      <strong style={{ color: 'var(--accent-600)' }}>₹{workerMetrics.collected}</strong>
+                      <strong style={{ color: 'var(--accent-600)' }}>₹{formatAmount(workerMetrics.collected)}</strong>
                     </div>
                     
                     <button 
@@ -2459,7 +3542,7 @@ export default function App() {
                               <span style={{ fontWeight: 'bold' }}>{cust ? cust.customer_name : 'Customer'}</span>
                               <span style={{ color: 'var(--neutral-400)', display: 'block' }}>{t('boxId')}: {p.box_id} • {p.payment_date}</span>
                             </div>
-                            <span style={{ color: 'var(--success)', fontWeight: 'bold' }}>₹{p.amount}</span>
+                            <span style={{ color: 'var(--success)', fontWeight: 'bold' }}>₹{formatAmount(p.amount)}</span>
                           </div>
                         );
                       })

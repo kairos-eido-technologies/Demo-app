@@ -469,6 +469,24 @@ export const dbService = {
       }
     },
 
+    update: async (id, data, userId) => {
+      if (isMock) {
+        const list = mockDB.getPayments();
+        const idx = list.findIndex(p => p.id === id);
+        if (idx === -1) throw new Error('Payment record not found.');
+
+        list[idx] = { ...list[idx], ...data };
+        mockDB.setPayments([...list]);
+        await dbService.auditLogs.create('UPDATE_PAYMENT', 'payments', id, { amount: data.amount, period: data.payment_period }, userId, list[idx].business_id);
+        return list[idx];
+      } else {
+        const { data: res, error } = await realSupabase.from('payments').update(data).eq('id', id).select().single();
+        if (error) throw error;
+        await dbService.auditLogs.create('UPDATE_PAYMENT', 'payments', id, { amount: data.amount, period: data.payment_period }, userId, data.business_id);
+        return res;
+      }
+    },
+
     createBulk: async (customerId, periods, totalAmount, workerId, businessId, notes, boxId, userId) => {
       const perPeriodAmount = (totalAmount / periods.length).toFixed(2);
       if (isMock) {

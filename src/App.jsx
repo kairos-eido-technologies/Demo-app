@@ -704,15 +704,13 @@ export default function App() {
         setApkLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${step.msg}`]);
         if (step.msg.startsWith('Build succeeded')) {
           setBuildingApk(false);
-          const blob = new Blob([`Kairos Compiled Mobile Wrapper for ${selectedBiz.business_name}. App Name: ${apkForm.appName}`], { type: 'text/plain' });
-          const url = URL.createObjectURL(blob);
           const link = document.createElement('a');
-          link.href = url;
+          link.href = '/app-release.apk';
           link.download = `${apkForm.appName.replace(/\s+/g, '_')}_v1.0.apk`;
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);
-          showSuccess('APK file downloaded.');
+          showSuccess('Real APK package downloaded successfully.');
         }
       }, step.delay);
     });

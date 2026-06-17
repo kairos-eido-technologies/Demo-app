@@ -2346,18 +2346,34 @@ public class MainActivity extends BridgeActivity {
                 </p>
 
                 {adminImportType === 'customers' ? (
-                  <div style={{ padding: '16px', background: '#ffffff', borderRadius: 'var(--radius-sm)', border: '1px solid var(--neutral-200)' }}>
-                    <p style={{ fontSize: '12px', fontWeight: 'bold', color: 'var(--primary-600)', marginBottom: '8px' }}>CUSTOMERS TEMPLATE HEADERS:</p>
-                    <code style={{ fontSize: '12px', whiteSpace: 'pre-wrap', color: 'var(--neutral-900)' }}>
-                      Customer Name, Street Name, Box ID, Phone Number, Status, Notes
-                    </code>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <div style={{ padding: '14px', background: '#ffffff', borderRadius: 'var(--radius-sm)', border: '1px solid var(--neutral-200)' }}>
+                      <p style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--primary-600)', marginBottom: '6px' }}>CSV HEADERS (NO SPACES):</p>
+                      <code style={{ fontSize: '11.5px', whiteSpace: 'pre-wrap', color: 'var(--neutral-900)', fontFamily: 'monospace' }}>
+                        Customer Name,Street Name,Box ID,Phone Number,Status,Assigned Worker,Notes
+                      </code>
+                    </div>
+                    <div style={{ padding: '14px', background: '#ffffff', borderRadius: 'var(--radius-sm)', border: '1px solid var(--neutral-200)' }}>
+                      <p style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--neutral-500)', marginBottom: '6px' }}>EXAMPLE VALID ROW:</p>
+                      <code style={{ fontSize: '11.5px', whiteSpace: 'pre-wrap', color: 'var(--neutral-700)', fontFamily: 'monospace' }}>
+                        Aravind Kumar,Gandhi Nagar,CB-1092,9876543210,ACTIVE,Ramesh Kumar,Monthly subscriber
+                      </code>
+                    </div>
                   </div>
                 ) : (
-                  <div style={{ padding: '16px', background: '#ffffff', borderRadius: 'var(--radius-sm)', border: '1px solid var(--neutral-200)' }}>
-                    <p style={{ fontSize: '12px', fontWeight: 'bold', color: 'var(--primary-600)', marginBottom: '8px' }}>PAYMENTS TEMPLATE HEADERS:</p>
-                    <code style={{ fontSize: '12px', whiteSpace: 'pre-wrap', color: 'var(--neutral-900)' }}>
-                      Box ID, Amount, Payment Date, Payment Period, Notes
-                    </code>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <div style={{ padding: '14px', background: '#ffffff', borderRadius: 'var(--radius-sm)', border: '1px solid var(--neutral-200)' }}>
+                      <p style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--primary-600)', marginBottom: '6px' }}>CSV HEADERS (NO SPACES):</p>
+                      <code style={{ fontSize: '11.5px', whiteSpace: 'pre-wrap', color: 'var(--neutral-900)', fontFamily: 'monospace' }}>
+                        Box ID,Amount,Payment Date,Payment Period,Notes
+                      </code>
+                    </div>
+                    <div style={{ padding: '14px', background: '#ffffff', borderRadius: 'var(--radius-sm)', border: '1px solid var(--neutral-200)' }}>
+                      <p style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--neutral-500)', marginBottom: '6px' }}>EXAMPLE VALID ROW:</p>
+                      <code style={{ fontSize: '11.5px', whiteSpace: 'pre-wrap', color: 'var(--neutral-700)', fontFamily: 'monospace' }}>
+                        CB-1092,350.00,2026-06-15,June 2026,Collected by Ramesh
+                      </code>
+                    </div>
                   </div>
                 )}
               </div>

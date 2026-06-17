@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
-import dbService from './supabase';
+import dbService, { hashPassword } from './supabase';
 
 // -------------------------------------------------------------
 // LOCALIZATION / TRANSLATIONS DICTIONARY (English & Tamil)
@@ -1920,6 +1920,7 @@ public class MainActivity extends BridgeActivity {
   }, [currentUser, customers, searchQuery, filterWorker, filterStatus, filterStreet, customerViewMode]);
 
   const filteredLedgerPayments = useMemo(() => {
+    if (!currentUser) return [];
     let list = currentUser.role === 'WORKER' 
       ? payments.filter(p => p.worker_id === currentUser.id) 
       : payments;

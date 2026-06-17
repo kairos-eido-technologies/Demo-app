@@ -306,6 +306,7 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchQueryBusinesses, setSearchQueryBusinesses] = useState('');
   const [searchQueryUsers, setSearchQueryUsers] = useState('');
+  const [ledgerSearchQuery, setLedgerSearchQuery] = useState('');
   const [filterWorker, setFilterWorker] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [filterStreet, setFilterStreet] = useState('');
@@ -313,14 +314,22 @@ export default function App() {
   // Mobile View Settings
   const [customerViewMode, setCustomerViewMode] = useState('standard'); // 'standard', 'street', 'box_id'
   const [expandedStreets, setExpandedStreets] = useState({});
+  const [addCustomerStreetMode, setAddCustomerStreetMode] = useState('select');
+  const [editCustomerStreetMode, setEditCustomerStreetMode] = useState('select');
   
   // Super Admin Data Importer State
   const [adminImportType, setAdminImportType] = useState('customers'); // 'customers', 'payments'
   const [adminImportTargetBiz, setAdminImportTargetBiz] = useState('');
   const [filterLogBusiness, setFilterLogBusiness] = useState('');
 
-  // Report Month State
-  const [reportMonth, setReportMonth] = useState('June 2026');
+  // Report Period Filter States
+  const [reportFilterMonth, setReportFilterMonth] = useState(new Date().toLocaleDateString('en-US', { month: 'long' }));
+  const [reportFilterYear, setReportFilterYear] = useState(new Date().getFullYear().toString());
+
+  // Worker Inspector Filter States
+  const [inspectDate, setInspectDate] = useState(new Date().toISOString().split('T')[0]);
+  const [inspectMonth, setInspectMonth] = useState(new Date().toLocaleDateString('en-US', { month: 'long' }));
+  const [inspectYear, setInspectYear] = useState(new Date().getFullYear().toString());
 
   // APK Builder Simulator State
   const [apkForm, setApkForm] = useState({ businessId: '', appName: '', packageName: 'com.kairos.cableapp', primaryColor: '#4f46e5' });
@@ -378,6 +387,69 @@ export default function App() {
       .join(' ');
   };
 
+  // Helper: Convert base64 data URL to Blob
+  const base64ToBlob = (base64Data, contentType = 'image/png') => {
+    try {
+      const sliceSize = 512;
+      const byteCharacters = atob(base64Data.split(',')[1] || base64Data);
+      const byteArrays = [];
+
+      for (let offset = 0; offset < byteCharacters.length; offset += sliceSize) {
+        const slice = byteCharacters.slice(offset, offset + sliceSize);
+        const byteNumbers = new Array(slice.length);
+        for (let i = 0; i < slice.length; i++) {
+          byteNumbers[i] = slice.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        byteArrays.push(byteArray);
+      }
+
+      return new Blob(byteArrays, { type: contentType });
+    } catch (err) {
+      console.error('base64ToBlob error:', err);
+      return null;
+    }
+  };
+
+  // Helper: Share a File using navigator.share or download as fallback
+  const shareOrDownloadFile = async (blob, filename) => {
+    if (!blob) return false;
+    const file = new File([blob], filename, { type: blob.type });
+    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({
+          files: [file],
+          title: filename,
+          text: filename
+        });
+        return true;
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          console.error('Web Share failed, attempting fallback download:', err);
+        } else {
+          return true; // user cancelled share sheet, count as handled
+        }
+      }
+    }
+
+    // Fallback: Download file
+    try {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      return true;
+    } catch (err) {
+      console.error('Download fallback failed:', err);
+      showError('Unable to share or download file.');
+      return false;
+    }
+  };
+
   // Helper: Get unpaid due months chronologically from registration month to current month
   const getDueMonths = (customer, allPayments) => {
     if (!customer) return [];
@@ -409,6 +481,18 @@ export default function App() {
       .map(p => p.payment_period);
 
     return duePeriods.filter(p => !paidPeriods.includes(p));
+  };
+
+  const getWorkerUnpaidCustomers = (workerId) => {
+    const assignedCusts = customers.filter(c => c.assigned_worker_id === workerId && c.connection_status === 'ACTIVE');
+    return assignedCusts.filter(cust => {
+      const unpaid = getDueMonths(cust, payments);
+      return unpaid.length > 0;
+    });
+  };
+
+  const getUnpaidCustomersCountForWorker = (workerId) => {
+    return getWorkerUnpaidCustomers(workerId).length;
   };
 
   // Translation Helper
@@ -700,10 +784,19 @@ export default function App() {
 
       ctx.font = '900 11px sans-serif';
       ctx.fillStyle = '#4f46e5';
-      ctx.fillText('POWERED BY KAIROS EDIO TECHNOLOGIES', 300, y + 22);
+      ctx.fillText('POWERED BY KAIROS EIDO TECHNOLOGIES', 300, y + 22);
 
       resolve(canvas.toDataURL('image/png'));
     });
+  };
+
+  const handleShareReceiptImage = async () => {
+    if (!receiptImageSrc || !activeReceiptPay) return;
+    const filename = `Receipt_${activeReceiptPay.box_id || 'box'}_${activeReceiptPay.payment_period.replace(/\s+/g, '_')}.png`;
+    const blob = base64ToBlob(receiptImageSrc, 'image/png');
+    if (blob) {
+      await shareOrDownloadFile(blob, filename);
+    }
   };
 
   const triggerOfflineSync = async (forcedQueue = null) => {
@@ -817,6 +910,12 @@ export default function App() {
 
   const checkSession = async () => {
     try {
+      if (!navigator.onLine) {
+        // Block entry if offline on initial load
+        setCurrentUser(null);
+        setLoading(false);
+        return;
+      }
       const session = await dbService.auth.getCurrentSession();
       if (session) {
         setCurrentUser(session);
@@ -889,6 +988,9 @@ export default function App() {
   // -------------------------------------------------------------
   const handleLogin = async (e) => {
     e.preventDefault();
+    if (!navigator.onLine) {
+      return showError('Internet connection is required to sign in.');
+    }
     if (!loginForm.username || !loginForm.password) {
       return showError('Please enter username and password.');
     }
@@ -928,12 +1030,13 @@ export default function App() {
     const cleanVpa = upiIdInput.trim();
     localStorage.setItem('kairos_saved_upi', cleanVpa);
     
-    const bizName = currentBusiness?.business_name || 'Cable TV';
+    const bizName = (currentBusiness?.business_name || 'Cable TV').trim().replace(/[^a-zA-Z0-9 ]/g, '');
     const amount = parseFloat(upiAmountInput) || 0;
-    const cleanNote = upiNoteInput.trim() || 'Cable TV Payment';
+    const cleanNote = (upiNoteInput.trim() || 'Cable TV Payment').trim().replace(/[^a-zA-Z0-9 ]/g, '');
+    const formattedAmount = amount % 1 === 0 ? amount.toString() : amount.toFixed(2);
 
     // Build the UPI URL: upi://pay?pa=...&pn=...&am=...&cu=INR&tn=...
-    const upiUrl = `upi://pay?pa=${cleanVpa}&pn=${encodeURIComponent(bizName)}&am=${amount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(cleanNote)}`;
+    const upiUrl = `upi://pay?pa=${encodeURIComponent(cleanVpa)}&pn=${encodeURIComponent(bizName)}&am=${formattedAmount}&cu=INR&tn=${encodeURIComponent(cleanNote)}`;
     
     // Set the QR image URL from api.qrserver.com
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&margin=10&data=${encodeURIComponent(upiUrl)}`;
@@ -1003,6 +1106,9 @@ export default function App() {
 
   const handleCreateCustomer = async (e) => {
     e.preventDefault();
+    if (!navigator.onLine) {
+      return showError('Internet connection is required to create a new customer.');
+    }
     if (!customerForm.customer_name || !customerForm.street_name || !customerForm.box_id) {
       return showError('Name, Street Name, and Box ID are required.');
     }
@@ -1269,6 +1375,10 @@ export default function App() {
 
   // CSV Customer Import Uploader (For mobile/operator)
   const handleCSVImport = (e) => {
+    if (!navigator.onLine) {
+      showError('Internet connection is required to import customers.');
+      return;
+    }
     const file = e.target.files[0];
     if (!file) return;
 
@@ -1329,6 +1439,10 @@ export default function App() {
 
   // Super Admin CSV Importer
   const handleAdminCSVImport = (e) => {
+    if (!navigator.onLine) {
+      showError('Internet connection is required to import data.');
+      return;
+    }
     if (!adminImportTargetBiz) return showError('Please choose a target Business client first.');
     const file = e.target.files[0];
     if (!file) return;
@@ -1455,7 +1569,7 @@ export default function App() {
   };
 
   // Excel Customer Export Downloader
-  const handleExportCustomers = () => {
+  const handleExportCustomers = async () => {
     const dataToExport = filteredCustomers.map(c => {
       const worker = profiles.find(p => p.id === c.assigned_worker_id);
       return {
@@ -1480,7 +1594,10 @@ export default function App() {
       const worksheet = XLSX.utils.json_to_sheet(dataToExport);
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, 'Customers');
-      XLSX.writeFile(workbook, filename);
+      
+      const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+      const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      await shareOrDownloadFile(blob, filename);
       showSuccess('Customer database exported to Excel.');
     } catch (err) {
       console.error('Customer export error:', err);
@@ -1491,12 +1608,18 @@ export default function App() {
   // -------------------------------------------------------------
   // MONTHLY REPORT EXPORTS
   // -------------------------------------------------------------
-  const handleExportMonthlyReport = (selectedMonth, targetWorkerId = null) => {
+  const handleExportMonthlyReport = async (filterM = reportFilterMonth, filterY = reportFilterYear, targetWorkerId = null) => {
     let list = payments.filter(p => p.status === 'Paid');
     
-    if (selectedMonth !== 'All Time') {
-      list = list.filter(p => p.payment_period === selectedMonth);
-    }
+    list = list.filter(p => {
+      if (filterM === 'All' && filterY === 'All') return true;
+      const parts = p.payment_period.split(' ');
+      const m = parts[0];
+      const y = parts[1];
+      if (filterM !== 'All' && m !== filterM) return false;
+      if (filterY !== 'All' && y !== filterY) return false;
+      return true;
+    });
     
     if (currentUser.role === 'WORKER') {
       list = list.filter(p => p.worker_id === currentUser.id);
@@ -1528,14 +1651,17 @@ export default function App() {
       ? `Worker_${profiles.find(pr => pr.id === targetWorkerId)?.username}`
       : (currentUser.role === 'WORKER' ? `My` : `Business`);
 
-    const monthStr = selectedMonth ? String(selectedMonth) : 'All_Time';
+    const monthStr = (filterM === 'All' && filterY === 'All') ? 'All_Time' : `${filterM}_${filterY}`;
     const filename = `${label}_collections_${monthStr.replace(/\s+/g, '_')}.xlsx`;
 
     try {
       const worksheet = XLSX.utils.json_to_sheet(dataToExport);
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, 'Collections');
-      XLSX.writeFile(workbook, filename);
+      
+      const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+      const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      await shareOrDownloadFile(blob, filename);
       showSuccess('Collections sheet exported successfully.');
     } catch (err) {
       console.error('Report export error:', err);
@@ -1566,7 +1692,7 @@ export default function App() {
       { msg: 'Generating AndroidManifest.xml and application icons...', delay: 4600 },
       { msg: 'Compiling resources with Gradle wrapper build (release)...', delay: 5800 },
       { msg: 'Optimizing classes.dex and compiling layout resources...', delay: 7000 },
-      { msg: 'Signing Android package with Kairos Edio Technologies release keystore...', delay: 8200 },
+      { msg: 'Signing Android package with Kairos Eido Technologies release keystore...', delay: 8200 },
       { msg: 'Aligning zip packages (zipalign target)...', delay: 9000 }
     ];
 
@@ -1751,6 +1877,24 @@ public class MainActivity extends BridgeActivity {
     return result;
   }, [currentUser, customers, searchQuery, filterWorker, filterStatus, filterStreet, customerViewMode]);
 
+  const filteredLedgerPayments = useMemo(() => {
+    let list = currentUser.role === 'WORKER' 
+      ? payments.filter(p => p.worker_id === currentUser.id) 
+      : payments;
+      
+    if (ledgerSearchQuery.trim()) {
+      const q = ledgerSearchQuery.toLowerCase().trim();
+      list = list.filter(pay => {
+        const cust = customers.find(c => c.id === pay.customer_id);
+        const customerName = cust ? cust.customer_name.toLowerCase() : '';
+        const boxId = pay.box_id ? pay.box_id.toLowerCase() : '';
+        const date = pay.payment_date ? pay.payment_date.toLowerCase() : '';
+        return customerName.includes(q) || boxId.includes(q) || date.includes(q);
+      });
+    }
+    return [...list].sort((a, b) => b.payment_date.localeCompare(a.payment_date));
+  }, [payments, customers, ledgerSearchQuery, currentUser]);
+
   const existingStreets = useMemo(() => {
     const streets = customers.map(c => c.street_name?.trim()).filter(Boolean);
     const unique = [];
@@ -1823,9 +1967,15 @@ public class MainActivity extends BridgeActivity {
     const todayStr = new Date().toISOString().split('T')[0];
     const globalTodayCollected = tenantPays.filter(p => p.status === 'Paid' && p.payment_date === todayStr).reduce((sum, p) => sum + parseFloat(p.amount), 0);
 
-    const monthFilteredPays = reportMonth === 'All Time' 
-      ? tenantPays 
-      : tenantPays.filter(p => p.payment_period === reportMonth);
+    const monthFilteredPays = tenantPays.filter(p => {
+      if (reportFilterMonth === 'All' && reportFilterYear === 'All') return true;
+      const parts = p.payment_period.split(' ');
+      const m = parts[0];
+      const y = parts[1];
+      if (reportFilterMonth !== 'All' && m !== reportFilterMonth) return false;
+      if (reportFilterYear !== 'All' && y !== reportFilterYear) return false;
+      return true;
+    });
 
     const reportCollected = monthFilteredPays.filter(p => p.status === 'Paid').reduce((sum, p) => sum + parseFloat(p.amount), 0);
 
@@ -1868,7 +2018,7 @@ public class MainActivity extends BridgeActivity {
       myTotalColl,
       myCustomersCount
     };
-  }, [currentUser, customers, payments, reportMonth]);
+  }, [currentUser, customers, payments, reportFilterMonth, reportFilterYear]);
 
   const paymentPeriodsList = useMemo(() => {
     const list = payments.map(p => p.payment_period);
@@ -1876,6 +2026,10 @@ public class MainActivity extends BridgeActivity {
     if (unique.length === 0) return ['June 2026', 'May 2026'];
     return unique;
   }, [payments]);
+
+  const totalUnpaidCustomersCount = useMemo(() => {
+    return customers.filter(c => c.connection_status === 'ACTIVE' && getDueMonths(c, payments).length > 0).length;
+  }, [customers, payments]);
 
   // Get specific worker performance metrics
   const getWorkerProgressMetrics = (workerId) => {
@@ -1886,9 +2040,15 @@ public class MainActivity extends BridgeActivity {
     const todayCollected = workerPays.filter(p => p.payment_date === todayStr).reduce((sum, p) => sum + parseFloat(p.amount), 0);
     const totalCollected = workerPays.reduce((sum, p) => sum + parseFloat(p.amount), 0);
 
-    const monthPays = reportMonth === 'All Time' 
-      ? workerPays 
-      : workerPays.filter(p => p.payment_period === reportMonth);
+    const monthPays = workerPays.filter(p => {
+      if (reportFilterMonth === 'All' && reportFilterYear === 'All') return true;
+      const parts = p.payment_period.split(' ');
+      const m = parts[0];
+      const y = parts[1];
+      if (reportFilterMonth !== 'All' && m !== reportFilterMonth) return false;
+      if (reportFilterYear !== 'All' && y !== reportFilterYear) return false;
+      return true;
+    });
 
     const collected = monthPays.reduce((sum, p) => sum + parseFloat(p.amount), 0);
     const history = monthPays;
@@ -1903,7 +2063,7 @@ public class MainActivity extends BridgeActivity {
   };
 
   if (showSplash) {
-    const bizName = import.meta.env.VITE_BUSINESS_NAME || currentBusiness?.business_name || 'Kairos Cable SaaS';
+    const bizName = import.meta.env.VITE_BUSINESS_NAME || currentBusiness?.business_name || 'Kairos Eido Technologies Cable TV';
     return (
       <div style={{
         height: '100vh',
@@ -1931,7 +2091,7 @@ public class MainActivity extends BridgeActivity {
             <Building2 size={32} />
           </div>
           <h2 style={{ fontSize: '12px', fontWeight: 700, color: 'var(--neutral-400)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-            App By Kairos Edio Technologies
+            App By Kairos Eido Technologies
           </h2>
           <h1 style={{ fontSize: '30px', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.03em', marginTop: '4px' }}>
             {bizName}
@@ -1953,7 +2113,7 @@ public class MainActivity extends BridgeActivity {
 
   // --- PREMIUM LOGIN SCREEN ---
   if (!currentUser) {
-    const displayBizName = import.meta.env.VITE_BUSINESS_NAME || 'Kairos Cable SaaS';
+    const displayBizName = import.meta.env.VITE_BUSINESS_NAME || 'Kairos Eido Technologies Cable TV';
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'radial-gradient(circle at 10% 20%, var(--neutral-800) 0%, var(--neutral-900) 90%)', padding: '20px', position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', width: '300px', height: '300px', background: 'rgba(79, 70, 229, 0.15)', filter: 'blur(80px)', top: '10%', left: '15%', borderRadius: '50%' }}></div>
@@ -2003,11 +2163,7 @@ public class MainActivity extends BridgeActivity {
             </button>
           </form>
 
-          <div style={{ marginTop: '28px', textAlign: 'center', borderTop: '1px solid var(--neutral-100)', paddingTop: '20px' }}>
-            <p style={{ fontSize: '11px', color: 'var(--neutral-400)', fontWeight: 600, lineHeight: 1.5 }}>
-              Self-registration is deactivated on this gateway.
-            </p>
-          </div>
+          {/* Self-registration info removed */}
         </div>
       </div>
     );
@@ -2884,6 +3040,12 @@ public class MainActivity extends BridgeActivity {
                     <span className="card-title" style={{ fontSize: '10px', display: 'block' }}>{t('subscribers')}</span>
                     <strong style={{ fontSize: '20px', color: 'var(--neutral-900)' }}>{stats?.totalCusts}</strong>
                   </div>
+                  {currentUser.role === 'OWNER' && (
+                    <div style={{ textAlign: 'center' }}>
+                      <span className="card-title" style={{ fontSize: '10px', display: 'block', color: 'var(--danger)' }}>Total Unpaid Customers</span>
+                      <strong style={{ fontSize: '20px', color: 'var(--danger)' }}>{totalUnpaidCustomersCount}</strong>
+                    </div>
+                  )}
                   <div style={{ textAlign: 'right' }}>
                     <span className="card-title" style={{ fontSize: '10px', display: 'block' }}>{t('activeNodes')}</span>
                     <strong style={{ fontSize: '20px', color: 'var(--accent-500)' }}>{stats?.activeCusts}</strong>
@@ -2907,7 +3069,7 @@ public class MainActivity extends BridgeActivity {
                       >
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                           <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--neutral-800)' }}>{w.name}</span>
-                          <span style={{ fontSize: '11px', color: 'var(--neutral-400)', fontWeight: 600 }}>Collector</span>
+                          <span style={{ fontSize: '11px', color: 'var(--danger)', fontWeight: 600 }}>Unpaid: {getUnpaidCustomersCountForWorker(w.id)}</span>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
                           <span style={{ color: 'var(--neutral-500)' }}>{t('todayEarning')}: <strong style={{ color: 'var(--success)' }}>₹{formatAmount(todayColl)}</strong></span>
@@ -2921,7 +3083,7 @@ public class MainActivity extends BridgeActivity {
                 {/* Street metrics progress */}
                 <div className="card" style={{ padding: '18px', marginBottom: '20px' }}>
                   <h4 style={{ fontSize: '13px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--neutral-400)', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}><MapPin size={16} /> {t('areaRankings')}</h4>
-                  {Object.entries(stats?.streetPerformance || {}).map(([street, collected]) => (
+                  {Object.entries(stats?.streetPerformance || {}).sort((a, b) => b[1] - a[1]).map(([street, collected]) => (
                     <div key={street} style={{ marginBottom: '12px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '4px', fontWeight: 600 }}>
                         <span>{street}</span>
@@ -3020,7 +3182,11 @@ public class MainActivity extends BridgeActivity {
               </div>
               
               <button
-                onClick={() => setModalType('add_customer')}
+                onClick={() => {
+                  setAddCustomerStreetMode(existingStreets.length > 0 ? 'select' : 'custom');
+                  setCustomerForm({ customer_name: '', street_name: existingStreets[0] || '', box_id: '', phone_number: '', assigned_worker_id: '', connection_status: 'ACTIVE', notes: '' });
+                  setModalType('add_customer');
+                }}
                 className="btn btn-primary"
                 style={{ padding: '12px', borderRadius: 'var(--radius-md)' }}
               >
@@ -3126,7 +3292,29 @@ public class MainActivity extends BridgeActivity {
                                 <div className="list-item-main">
                                   <span className="list-item-title" style={{ fontSize: '14px' }}>{cust.customer_name}</span>
                                   <span className="list-item-subtitle" style={{ display: 'block', marginTop: '2px' }}>📍 {cust.street_name}</span>
-                                  <span className="list-item-subtitle" style={{ display: 'block' }}>{t('boxId')}: {cust.box_id}</span>
+                                  <span className="list-item-subtitle" style={{ display: 'flex', alignItems: 'center', gap: '6px' }} onClick={(e) => e.stopPropagation()}>
+                                    {t('boxId')}: {cust.box_id}
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        navigator.clipboard.writeText(cust.box_id);
+                                        showSuccess(`Box ID ${cust.box_id} copied!`);
+                                      }}
+                                      style={{
+                                        background: 'none',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        padding: '2px',
+                                        color: 'var(--neutral-400)',
+                                        display: 'inline-flex',
+                                        alignItems: 'center'
+                                      }}
+                                      title="Copy Box ID"
+                                    >
+                                      <Copy size={11} />
+                                    </button>
+                                  </span>
                                   {unpaid.length === 0 ? (
                                     <span className="badge badge-paid" style={{ fontSize: '10px', marginTop: '6px', padding: '3px 8px' }}>{t('paid')}</span>
                                   ) : (
@@ -3189,7 +3377,29 @@ public class MainActivity extends BridgeActivity {
                       <div className="list-item-main">
                         <span className="list-item-title">{cust.customer_name}</span>
                         <span className="list-item-subtitle" style={{ display: 'block', marginTop: '2px' }}>📍 {cust.street_name}</span>
-                        <span className="list-item-subtitle" style={{ display: 'block' }}>{t('boxId')}: {cust.box_id}</span>
+                        <span className="list-item-subtitle" style={{ display: 'flex', alignItems: 'center', gap: '6px' }} onClick={(e) => e.stopPropagation()}>
+                          {t('boxId')}: {cust.box_id}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigator.clipboard.writeText(cust.box_id);
+                              showSuccess(`Box ID ${cust.box_id} copied!`);
+                            }}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              cursor: 'pointer',
+                              padding: '2px',
+                              color: 'var(--neutral-400)',
+                              display: 'inline-flex',
+                              alignItems: 'center'
+                            }}
+                            title="Copy Box ID"
+                          >
+                            <Copy size={11} />
+                          </button>
+                        </span>
                         {unpaid.length === 0 ? (
                           <span className="badge badge-paid" style={{ fontSize: '10px', marginTop: '6px', padding: '3px 8px' }}>{t('paid')}</span>
                         ) : (
@@ -3242,51 +3452,74 @@ public class MainActivity extends BridgeActivity {
         {activeTab === 'payments' && (
           <div className="animate-fade-in">
             <h3 style={{ fontSize: '16px', fontWeight: 800, marginBottom: '16px' }}>{t('ledger')}</h3>
+            
+            <div style={{ position: 'relative', marginBottom: '16px' }}>
+              <Search size={18} style={{ position: 'absolute', left: '12px', top: '14px', color: 'var(--neutral-400)' }} />
+              <input
+                type="text"
+                className="form-input"
+                style={{ paddingLeft: '38px' }}
+                placeholder={language === 'ta' ? 'பெயர், பாக்ஸ் ஐடி, தேதியைத் தேடுக...' : 'Search Name, Box ID, Date...'}
+                value={ledgerSearchQuery}
+                onChange={(e) => setLedgerSearchQuery(e.target.value)}
+              />
+            </div>
+
             <div className="card" style={{ padding: '0 16px' }}>
-              {(currentUser.role === 'WORKER' ? payments.filter(p => p.worker_id === currentUser.id) : payments).map(pay => {
-                const cust = customers.find(c => c.id === pay.customer_id);
-                return (
-                  <div 
-                    key={pay.id} 
-                    style={{ display: 'flex', justifyContent: 'space-between', padding: '16px 0', borderBottom: '1px solid var(--neutral-100)', cursor: 'pointer' }}
-                  >
-                    <div onClick={() => handleOpenEditPayment(pay)} style={{ flex: 1 }}>
-                      <p style={{ fontSize: '13px', fontWeight: 700 }}>
-                        {cust ? cust.customer_name : t('customerRecord')}
-                        {pay.sync_status === 'PENDING_SYNC' && (
-                          <span style={{ color: '#ef4444', fontSize: '10px', marginLeft: '8px', fontWeight: 'bold' }}>
-                            ({language === 'ta' ? 'ஆஃப்லைன்' : 'Offline'})
-                          </span>
-                        )}
-                      </p>
-                      <span style={{ fontSize: '11px', color: 'var(--neutral-400)' }}>{t('boxId')}: {pay.box_id} • {formatPeriodTranslated(pay.payment_period)}</span>
-                    </div>
-                    <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      <button
-                        onClick={async (e) => {
-                          e.stopPropagation();
-                          const imgData = await generateReceiptImage(pay, cust);
-                          setReceiptImageSrc(imgData);
-                          setActiveReceiptPay(pay);
-                          setActiveReceiptCust(cust);
-                          setModalType('receipt_modal');
-                        }}
-                        style={{ background: 'none', border: 'none', color: 'var(--primary-500)', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '6px' }}
-                        title="Generate Receipt"
-                      >
-                        <Receipt size={16} />
-                      </button>
-                      <div onClick={() => handleOpenEditPayment(pay)} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <div>
-                          <p style={{ fontSize: '13px', fontWeight: 800, color: 'var(--success)' }}>₹{formatAmount(pay.amount)}</p>
-                          <span style={{ fontSize: '10px', color: 'var(--neutral-400)' }}>{pay.payment_date}</span>
+              {filteredLedgerPayments.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '30px 10px', color: 'var(--neutral-400)' }}>
+                  <Info size={28} style={{ margin: '0 auto 8px auto' }} />
+                  <p style={{ fontSize: '12px' }}>{language === 'ta' ? 'பொருந்தும் வசூல் பதிவுகள் எதுவும் இல்லை.' : 'No payment records found.'}</p>
+                </div>
+              ) : (
+                filteredLedgerPayments.map(pay => {
+                  const cust = customers.find(c => c.id === pay.customer_id);
+                  return (
+                    <div 
+                      key={pay.id} 
+                      style={{ display: 'flex', justifyContent: 'space-between', padding: '16px 0', borderBottom: '1px solid var(--neutral-100)', cursor: 'pointer' }}
+                    >
+                      <div onClick={() => handleOpenEditPayment(pay)} style={{ flex: 1 }}>
+                        <p style={{ fontSize: '13px', fontWeight: 700 }}>
+                          {cust ? cust.customer_name : t('customerRecord')}
+                          {pay.sync_status === 'PENDING_SYNC' && (
+                            <span style={{ color: '#ef4444', fontSize: '10px', marginLeft: '8px', fontWeight: 'bold' }}>
+                              ({language === 'ta' ? 'ஆஃப்லைன்' : 'Offline'})
+                            </span>
+                          )}
+                        </p>
+                        <span style={{ fontSize: '11px', color: 'var(--neutral-400)' }}>
+                          {t('boxId')}: {pay.box_id} • {formatPeriodTranslated(pay.payment_period)}
+                          {currentUser.role !== 'WORKER' && ` • ${profiles.find(p => p.id === pay.worker_id)?.name || 'Direct/Admin'}`}
+                        </span>
+                      </div>
+                      <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <button
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            const imgData = await generateReceiptImage(pay, cust);
+                            setReceiptImageSrc(imgData);
+                            setActiveReceiptPay(pay);
+                            setActiveReceiptCust(cust);
+                            setModalType('receipt_modal');
+                          }}
+                          style={{ background: 'none', border: 'none', color: 'var(--primary-500)', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '6px' }}
+                          title="Generate Receipt"
+                        >
+                          <Receipt size={16} />
+                        </button>
+                        <div onClick={() => handleOpenEditPayment(pay)} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <div>
+                            <p style={{ fontSize: '13px', fontWeight: 800, color: 'var(--success)' }}>₹{formatAmount(pay.amount)}</p>
+                            <span style={{ fontSize: '10px', color: 'var(--neutral-400)' }}>{pay.payment_date}</span>
+                          </div>
+                          <Edit2 size={14} style={{ color: 'var(--neutral-400)' }} />
                         </div>
-                        <Edit2 size={14} style={{ color: 'var(--neutral-400)' }} />
                       </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
           </div>
         )}
@@ -3397,7 +3630,7 @@ public class MainActivity extends BridgeActivity {
                     <button 
                       type="button" 
                       className="btn icon-align"
-                      style={{ flex: 1, padding: '10px', fontSize: '12px', background: 'var(--neutral-100)', color: 'var(--neutral-700)', justifyContent: 'center' }}
+                      style={{ width: '100%', padding: '10px', fontSize: '12px', background: 'var(--neutral-100)', color: 'var(--neutral-700)', justifyContent: 'center' }}
                       onClick={() => {
                         navigator.clipboard.writeText(generatedUpiUrl);
                         showSuccess('UPI link copied to clipboard!');
@@ -3405,14 +3638,6 @@ public class MainActivity extends BridgeActivity {
                     >
                       <Copy size={12} /> {t('copyPayLink')}
                     </button>
-
-                    <a 
-                      href={generatedUpiUrl} 
-                      className="btn btn-secondary icon-align"
-                      style={{ flex: 1, padding: '10px', fontSize: '12px', justifyContent: 'center', textDecoration: 'none', background: 'var(--neutral-800)', color: '#ffffff' }}
-                    >
-                      <ExternalLink size={12} /> {t('launchApp')}
-                    </a>
                   </div>
                 </div>
               )}
@@ -3422,20 +3647,33 @@ public class MainActivity extends BridgeActivity {
             <div className="card" style={{ padding: '16px', marginBottom: '20px' }}>
               <div className="form-group" style={{ marginBottom: '12px' }}>
                 <label className="form-label" style={{ fontSize: '11px' }}>{t('filterPeriod')}</label>
-                <select 
-                  className="form-input form-select" 
-                  value={reportMonth} 
-                  onChange={(e) => setReportMonth(e.target.value)}
-                  style={{ padding: '10px 14px', fontSize: '13px' }}
-                >
-                  <option value="All Time">{t('allTime')}</option>
-                  {paymentPeriodsList.map(period => (
-                    <option key={period} value={period}>{period}</option>
-                  ))}
-                </select>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <select 
+                    className="form-input form-select" 
+                    value={reportFilterMonth} 
+                    onChange={(e) => setReportFilterMonth(e.target.value)}
+                    style={{ padding: '10px', fontSize: '13px', flex: 1 }}
+                  >
+                    <option value="All">All Months</option>
+                    {MONTHS_ORDER.map(m => (
+                      <option key={m} value={m}>{t(m.toLowerCase())}</option>
+                    ))}
+                  </select>
+                  <select 
+                    className="form-input form-select" 
+                    value={reportFilterYear} 
+                    onChange={(e) => setReportFilterYear(e.target.value)}
+                    style={{ padding: '10px', fontSize: '13px', flex: 1 }}
+                  >
+                    <option value="All">All Years</option>
+                    {['2024', '2025', '2026', '2027', '2028', '2029', '2030'].map(y => (
+                      <option key={y} value={y}>{y}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
               <button 
-                onClick={() => handleExportMonthlyReport(reportMonth)} 
+                onClick={() => handleExportMonthlyReport(reportFilterMonth, reportFilterYear)} 
                 className="btn btn-primary icon-align" 
                 style={{ width: '100%', padding: '12px', fontSize: '13px' }}
               >
@@ -3467,7 +3705,7 @@ public class MainActivity extends BridgeActivity {
                           </div>
                           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--neutral-400)', marginTop: '8px' }}>
                             <span>Today: <strong style={{ color: 'var(--success)' }}>₹{formatAmount(metrics.todayCollected)}</strong></span>
-                            <span>Total: <strong style={{ color: 'var(--primary-600)' }}>₹{formatAmount(metrics.totalCollected)}</strong></span>
+                            <span>Unpaid: <strong style={{ color: 'var(--danger)' }}>{getUnpaidCustomersCountForWorker(w.id)}</strong></span>
                             <span>Subscribers: <strong>{metrics.customersCount}</strong></span>
                           </div>
                         </div>
@@ -3497,12 +3735,12 @@ public class MainActivity extends BridgeActivity {
                           </div>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--neutral-100)', paddingTop: '10px', fontSize: '12px' }}>
-                          <span>My Collections for <strong>{reportMonth}</strong>:</span>
+                          <span>My Collections for <strong>{reportFilterMonth === 'All' && reportFilterYear === 'All' ? 'All Time' : `${reportFilterMonth} ${reportFilterYear}`}</strong>:</span>
                           <strong style={{ color: 'var(--accent-600)' }}>₹{formatAmount(myMetrics.collected)}</strong>
                         </div>
                       </div>
 
-                      <h4 style={{ fontSize: '13px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--neutral-400)', marginBottom: '12px' }}>My Collections Ledger ({reportMonth})</h4>
+                      <h4 style={{ fontSize: '13px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--neutral-400)', marginBottom: '12px' }}>My Collections Ledger ({reportFilterMonth === 'All' && reportFilterYear === 'All' ? 'All Time' : `${reportFilterMonth} ${reportFilterYear}`})</h4>
                       <div className="card" style={{ padding: '0 16px' }}>
                         {myMetrics.history.map(p => {
                           const cust = customers.find(c => c.id === p.customer_id);
@@ -3547,15 +3785,63 @@ public class MainActivity extends BridgeActivity {
               </div>
               <div className="form-group">
                 <label className="form-label">Street / Area Name</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="e.g. Park Road"
-                  list="existing-streets-list"
-                  value={customerForm.street_name}
-                  onChange={(e) => setCustomerForm({ ...customerForm, street_name: e.target.value })}
-                  required
-                />
+                {addCustomerStreetMode === 'select' && existingStreets.length > 0 ? (
+                  <div style={{ display: 'flex', gap: '8px', flexDirection: 'column' }}>
+                    <select
+                      className="form-input form-select"
+                      value={customerForm.street_name}
+                      onChange={(e) => {
+                        if (e.target.value === '__ADD_NEW__') {
+                          setAddCustomerStreetMode('custom');
+                          setCustomerForm({ ...customerForm, street_name: '' });
+                        } else {
+                          setCustomerForm({ ...customerForm, street_name: e.target.value });
+                        }
+                      }}
+                      required
+                    >
+                      <option value="">-- Select Street --</option>
+                      {existingStreets.map(st => (
+                        <option key={st} value={st}>{st}</option>
+                      ))}
+                      <option value="__ADD_NEW__">+ Add New Street...</option>
+                    </select>
+                  </div>
+                ) : (
+                  <div>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="e.g. Park Road"
+                      value={customerForm.street_name}
+                      onChange={(e) => setCustomerForm({ ...customerForm, street_name: e.target.value })}
+                      required
+                    />
+                    {existingStreets.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAddCustomerStreetMode('select');
+                          if (existingStreets.length > 0) {
+                            setCustomerForm({ ...customerForm, street_name: existingStreets[0] });
+                          }
+                        }}
+                        style={{
+                          marginTop: '6px',
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--primary-600)',
+                          fontSize: '11px',
+                          cursor: 'pointer',
+                          textDecoration: 'underline',
+                          padding: 0
+                        }}
+                      >
+                        Choose from existing streets
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
               <div className="form-group">
                 <label className="form-label">Hardware Box / STB ID</label>
@@ -3632,14 +3918,63 @@ public class MainActivity extends BridgeActivity {
               </div>
               <div className="form-group">
                 <label className="form-label">Street Name</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  list="existing-streets-list"
-                  value={customerForm.street_name}
-                  onChange={(e) => setCustomerForm({ ...customerForm, street_name: e.target.value })}
-                  required
-                />
+                {editCustomerStreetMode === 'select' && existingStreets.length > 0 ? (
+                  <div style={{ display: 'flex', gap: '8px', flexDirection: 'column' }}>
+                    <select
+                      className="form-input form-select"
+                      value={customerForm.street_name}
+                      onChange={(e) => {
+                        if (e.target.value === '__ADD_NEW__') {
+                          setEditCustomerStreetMode('custom');
+                          setCustomerForm({ ...customerForm, street_name: '' });
+                        } else {
+                          setCustomerForm({ ...customerForm, street_name: e.target.value });
+                        }
+                      }}
+                      required
+                    >
+                      <option value="">-- Select Street --</option>
+                      {existingStreets.map(st => (
+                        <option key={st} value={st}>{st}</option>
+                      ))}
+                      <option value="__ADD_NEW__">+ Add New Street...</option>
+                    </select>
+                  </div>
+                ) : (
+                  <div>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="e.g. Park Road"
+                      value={customerForm.street_name}
+                      onChange={(e) => setCustomerForm({ ...customerForm, street_name: e.target.value })}
+                      required
+                    />
+                    {existingStreets.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditCustomerStreetMode('select');
+                          if (existingStreets.length > 0) {
+                            setCustomerForm({ ...customerForm, street_name: existingStreets[0] });
+                          }
+                        }}
+                        style={{
+                          marginTop: '6px',
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--primary-600)',
+                          fontSize: '11px',
+                          cursor: 'pointer',
+                          textDecoration: 'underline',
+                          padding: 0
+                        }}
+                      >
+                        Choose from existing streets
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
               <div className="form-group">
                 <label className="form-label">Box ID</label>
@@ -3711,7 +4046,28 @@ public class MainActivity extends BridgeActivity {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
               <div>
                 <h3 style={{ fontSize: '18px', fontWeight: 800 }}>{selectedCustomer.customer_name}</h3>
-                <p style={{ fontSize: '13px', color: 'var(--neutral-400)' }}>{t('boxId')}: <strong>{selectedCustomer.box_id}</strong></p>
+                <p style={{ fontSize: '13px', color: 'var(--neutral-400)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  {t('boxId')}: <strong>{selectedCustomer.box_id}</strong>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(selectedCustomer.box_id);
+                      showSuccess(`Box ID ${selectedCustomer.box_id} copied!`);
+                    }}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      padding: '2px',
+                      color: 'var(--neutral-400)',
+                      display: 'inline-flex',
+                      alignItems: 'center'
+                    }}
+                    title="Copy Box ID"
+                  >
+                    <Copy size={13} />
+                  </button>
+                </p>
               </div>
               <span className={`badge ${selectedCustomer.connection_status === 'ACTIVE' ? 'badge-active' : 'badge-inactive'}`}>
                 {selectedCustomer.connection_status === 'ACTIVE' ? t('active') : t('inactive')}
@@ -3841,6 +4197,8 @@ public class MainActivity extends BridgeActivity {
             <div style={{ display: 'flex', gap: '8px', borderTop: '1px solid var(--neutral-100)', paddingTop: '16px', marginBottom: '16px' }}>
               <button
                 onClick={() => {
+                  const isExisting = existingStreets.includes(selectedCustomer.street_name);
+                  setEditCustomerStreetMode(isExisting ? 'select' : 'custom');
                   setCustomerForm({
                     customer_name: selectedCustomer.customer_name,
                     street_name: selectedCustomer.street_name,
@@ -3933,14 +4291,36 @@ public class MainActivity extends BridgeActivity {
               </div>
               <div className="form-group">
                 <label className="form-label">{t('period')}</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="e.g. June 2026"
-                  value={singlePaymentForm.period}
-                  onChange={(e) => setSinglePaymentForm({ ...singlePaymentForm, period: e.target.value })}
-                  required
-                />
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <select
+                    className="form-input form-select"
+                    value={singlePaymentForm.period.split(' ')[0] || new Date().toLocaleDateString('en-US', { month: 'long' })}
+                    onChange={(e) => {
+                      const currentYear = singlePaymentForm.period.split(' ')[1] || new Date().getFullYear().toString();
+                      setSinglePaymentForm({ ...singlePaymentForm, period: `${e.target.value} ${currentYear}` });
+                    }}
+                    style={{ flex: 1 }}
+                    required
+                  >
+                    {MONTHS_ORDER.map(m => (
+                      <option key={m} value={m}>{t(m.toLowerCase())}</option>
+                    ))}
+                  </select>
+                  <select
+                    className="form-input form-select"
+                    value={singlePaymentForm.period.split(' ')[1] || new Date().getFullYear().toString()}
+                    onChange={(e) => {
+                      const currentMonth = singlePaymentForm.period.split(' ')[0] || new Date().toLocaleDateString('en-US', { month: 'long' });
+                      setSinglePaymentForm({ ...singlePaymentForm, period: `${currentMonth} ${e.target.value}` });
+                    }}
+                    style={{ flex: 1 }}
+                    required
+                  >
+                    {['2024', '2025', '2026', '2027', '2028', '2029', '2030'].map(y => (
+                      <option key={y} value={y}>{y}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
               <div className="form-group">
                 <label className="form-label">{t('notes')}</label>
@@ -4101,13 +4481,36 @@ public class MainActivity extends BridgeActivity {
               </div>
               <div className="form-group">
                 <label className="form-label">{t('period')}</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={paymentForm.period}
-                  onChange={(e) => setPaymentForm({ ...paymentForm, period: e.target.value })}
-                  required
-                />
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <select
+                    className="form-input form-select"
+                    value={paymentForm.period.split(' ')[0] || new Date().toLocaleDateString('en-US', { month: 'long' })}
+                    onChange={(e) => {
+                      const currentYear = paymentForm.period.split(' ')[1] || new Date().getFullYear().toString();
+                      setPaymentForm({ ...paymentForm, period: `${e.target.value} ${currentYear}` });
+                    }}
+                    style={{ flex: 1 }}
+                    required
+                  >
+                    {MONTHS_ORDER.map(m => (
+                      <option key={m} value={m}>{t(m.toLowerCase())}</option>
+                    ))}
+                  </select>
+                  <select
+                    className="form-input form-select"
+                    value={paymentForm.period.split(' ')[1] || new Date().getFullYear().toString()}
+                    onChange={(e) => {
+                      const currentMonth = paymentForm.period.split(' ')[0] || new Date().toLocaleDateString('en-US', { month: 'long' });
+                      setPaymentForm({ ...paymentForm, period: `${currentMonth} ${e.target.value}` });
+                    }}
+                    style={{ flex: 1 }}
+                    required
+                  >
+                    {['2024', '2025', '2026', '2027', '2028', '2029', '2030'].map(y => (
+                      <option key={y} value={y}>{y}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
               <div className="form-group">
                 <label className="form-label">{t('paymentDate')}</label>
@@ -4163,56 +4566,155 @@ public class MainActivity extends BridgeActivity {
             </div>
 
             {(() => {
-              const workerMetrics = getWorkerProgressMetrics(selectedWorker.id);
+              const workerPays = payments.filter(p => p.worker_id === selectedWorker.id && p.status === 'Paid');
+              
+              // Daily calculation
+              const dailyPays = workerPays.filter(p => p.payment_date === inspectDate);
+              const dailyTotal = dailyPays.reduce((sum, p) => sum + parseFloat(p.amount), 0);
+
+              // Monthly calculation
+              const monthlyPays = workerPays.filter(p => {
+                if (inspectMonth === 'All' && inspectYear === 'All') return true;
+                const parts = p.payment_period.split(' ');
+                const m = parts[0];
+                const y = parts[1];
+                if (inspectMonth !== 'All' && m !== inspectMonth) return false;
+                if (inspectYear !== 'All' && y !== inspectYear) return false;
+                return true;
+              });
+              const monthlyTotal = monthlyPays.reduce((sum, p) => sum + parseFloat(p.amount), 0);
+
+              // Unpaid calculation
+              const unpaidCusts = getWorkerUnpaidCustomers(selectedWorker.id);
+              const assignedCustsCount = customers.filter(c => c.assigned_worker_id === selectedWorker.id).length;
+
               return (
                 <div>
-                  <div className="card" style={{ padding: '16px', marginBottom: '20px' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', textAlign: 'center', marginBottom: '12px' }}>
+                  {/* General summary card */}
+                  <div className="card" style={{ padding: '16px', marginBottom: '16px', textAlign: 'center' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                       <div>
-                        <span style={{ fontSize: '10px', color: 'var(--neutral-400)', display: 'block', textTransform: 'uppercase', fontWeight: 700 }}>{t('todayEarning')}</span>
-                        <strong style={{ fontSize: '15px', color: 'var(--success)' }}>₹{formatAmount(workerMetrics.todayCollected)}</strong>
-                      </div>
-                      <div>
-                        <span style={{ fontSize: '10px', color: 'var(--neutral-400)', display: 'block', textTransform: 'uppercase', fontWeight: 700 }}>{t('totalEarning')}</span>
-                        <strong style={{ fontSize: '15px', color: 'var(--primary-600)' }}>₹{formatAmount(workerMetrics.totalCollected)}</strong>
+                        <span style={{ fontSize: '10px', color: 'var(--neutral-400)', display: 'block', textTransform: 'uppercase', fontWeight: 700 }}>Total All Time</span>
+                        <strong style={{ fontSize: '16px', color: 'var(--primary-600)' }}>₹{formatAmount(workerPays.reduce((sum, p) => sum + parseFloat(p.amount), 0))}</strong>
                       </div>
                       <div>
                         <span style={{ fontSize: '10px', color: 'var(--neutral-400)', display: 'block', textTransform: 'uppercase', fontWeight: 700 }}>Subscribers</span>
-                        <strong style={{ fontSize: '15px', color: 'var(--neutral-900)' }}>{workerMetrics.customersCount}</strong>
+                        <strong style={{ fontSize: '16px', color: 'var(--neutral-900)' }}>{assignedCustsCount}</strong>
                       </div>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--neutral-100)', paddingTop: '10px', fontSize: '12px' }}>
-                      <span>Collections for <strong>{reportMonth}</strong>:</span>
-                      <strong style={{ color: 'var(--accent-600)' }}>₹{formatAmount(workerMetrics.collected)}</strong>
+                  </div>
+
+                  {/* Daily Section */}
+                  <div className="card" style={{ padding: '16px', marginBottom: '16px' }}>
+                    <h4 style={{ fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--neutral-500)', marginBottom: '10px' }}>Daily Statistics</h4>
+                    <div className="form-group" style={{ marginBottom: '10px' }}>
+                      <input 
+                        type="date" 
+                        className="form-input" 
+                        value={inspectDate} 
+                        onChange={(e) => setInspectDate(e.target.value)} 
+                        style={{ padding: '8px 12px', fontSize: '13px' }}
+                      />
                     </div>
-                    
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', fontSize: '13px' }}>
+                      <span>Earning on this day:</span>
+                      <strong style={{ color: 'var(--success)', fontSize: '15px' }}>₹{formatAmount(dailyTotal)}</strong>
+                    </div>
+                    <div style={{ maxHeight: '100px', overflowY: 'auto', borderTop: '1px solid var(--neutral-100)', paddingTop: '6px' }}>
+                      {dailyPays.length === 0 ? (
+                        <p style={{ fontSize: '11px', color: 'var(--neutral-400)', textAlign: 'center', padding: '6px 0' }}>No collections registered on this date.</p>
+                      ) : (
+                        dailyPays.map(p => {
+                          const cust = customers.find(c => c.id === p.customer_id);
+                          return (
+                            <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '11px', borderBottom: '1px dashed var(--neutral-100)' }}>
+                              <span>{cust ? cust.customer_name : 'Customer'} ({p.box_id})</span>
+                              <strong style={{ color: 'var(--success)' }}>₹{formatAmount(p.amount)}</strong>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Monthly Section */}
+                  <div className="card" style={{ padding: '16px', marginBottom: '16px' }}>
+                    <h4 style={{ fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--neutral-500)', marginBottom: '10px' }}>Monthly Statistics</h4>
+                    <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+                      <select
+                        className="form-input form-select"
+                        value={inspectMonth}
+                        onChange={(e) => setInspectMonth(e.target.value)}
+                        style={{ padding: '8px 10px', fontSize: '12px', flex: 1 }}
+                      >
+                        <option value="All">All Months</option>
+                        {MONTHS_ORDER.map(m => (
+                          <option key={m} value={m}>{m}</option>
+                        ))}
+                      </select>
+                      <select
+                        className="form-input form-select"
+                        value={inspectYear}
+                        onChange={(e) => setInspectYear(e.target.value)}
+                        style={{ padding: '8px 10px', fontSize: '12px', flex: 1 }}
+                      >
+                        <option value="All">All Years</option>
+                        {['2024', '2025', '2026', '2027', '2028', '2029', '2030'].map(y => (
+                          <option key={y} value={y}>{y}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', fontSize: '13px' }}>
+                      <span>Earning in period:</span>
+                      <strong style={{ color: 'var(--primary-600)', fontSize: '15px' }}>₹{formatAmount(monthlyTotal)}</strong>
+                    </div>
+                    <div style={{ maxHeight: '100px', overflowY: 'auto', borderTop: '1px solid var(--neutral-100)', paddingTop: '6px', marginBottom: '10px' }}>
+                      {monthlyPays.length === 0 ? (
+                        <p style={{ fontSize: '11px', color: 'var(--neutral-400)', textAlign: 'center', padding: '6px 0' }}>No collections registered for this period.</p>
+                      ) : (
+                        monthlyPays.map(p => {
+                          const cust = customers.find(c => c.id === p.customer_id);
+                          return (
+                            <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '11px', borderBottom: '1px dashed var(--neutral-100)' }}>
+                              <span>{cust ? cust.customer_name : 'Customer'} ({p.box_id})</span>
+                              <strong style={{ color: 'var(--success)' }}>₹{formatAmount(p.amount)}</strong>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
                     <button 
-                      onClick={() => handleExportMonthlyReport(reportMonth, selectedWorker.id)}
+                      onClick={() => handleExportMonthlyReport(inspectMonth, inspectYear, selectedWorker.id)}
                       className="btn btn-secondary icon-align" 
-                      style={{ width: '100%', padding: '10px', fontSize: '12px', marginTop: '14px' }}
+                      style={{ width: '100%', padding: '8px', fontSize: '11px' }}
                     >
-                      <Download size={14} /> Download Worker Monthly Report (XLS)
+                      <Download size={12} /> Download Worker Period Report (XLS)
                     </button>
                   </div>
 
-                  <h4 style={{ fontSize: '13px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--neutral-400)', marginBottom: '12px' }}>Collections Logged ({reportMonth})</h4>
-                  <div style={{ maxHeight: '180px', overflowY: 'auto' }}>
-                    {workerMetrics.history.length === 0 ? (
-                      <p style={{ fontSize: '12px', color: 'var(--neutral-400)', textAlign: 'center', padding: '20px 0' }}>No collections registered for this period.</p>
-                    ) : (
-                      workerMetrics.history.map(p => {
-                        const cust = customers.find(c => c.id === p.customer_id);
-                        return (
-                          <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--neutral-100)', fontSize: '12px' }}>
-                            <div>
-                              <span style={{ fontWeight: 'bold' }}>{cust ? cust.customer_name : 'Customer'}</span>
-                              <span style={{ color: 'var(--neutral-400)', display: 'block' }}>{t('boxId')}: {p.box_id} • {p.payment_date}</span>
+                  {/* Unpaid Customers Section */}
+                  <div className="card" style={{ padding: '16px', marginBottom: '16px' }}>
+                    <h4 style={{ fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--danger)', marginBottom: '10px' }}>
+                      Unpaid Subscribers ({unpaidCusts.length})
+                    </h4>
+                    <div style={{ maxHeight: '120px', overflowY: 'auto' }}>
+                      {unpaidCusts.length === 0 ? (
+                        <p style={{ fontSize: '11px', color: 'var(--neutral-400)', textAlign: 'center', padding: '10px 0' }}>All assigned customers are fully paid!</p>
+                      ) : (
+                        unpaidCusts.map(cust => {
+                          const unpaid = getDueMonths(cust, payments);
+                          return (
+                            <div key={cust.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--neutral-100)', fontSize: '11px' }}>
+                              <div>
+                                <span style={{ fontWeight: 'bold' }}>{cust.customer_name}</span>
+                                <span style={{ color: 'var(--neutral-400)', display: 'block', fontSize: '10px' }}>Box: {cust.box_id} • {cust.street_name}</span>
+                              </div>
+                              <span style={{ color: 'var(--danger)', fontWeight: 'bold' }}>{unpaid.length} months due</span>
                             </div>
-                            <span style={{ color: 'var(--success)', fontWeight: 'bold' }}>₹{formatAmount(p.amount)}</span>
-                          </div>
-                        );
-                      })
-                    )}
+                          );
+                        })
+                      )}
+                    </div>
                   </div>
                 </div>
               );
@@ -4260,14 +4762,13 @@ public class MainActivity extends BridgeActivity {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {receiptImageSrc && (
-                <a 
-                  href={receiptImageSrc} 
-                  download={`Receipt_${activeReceiptPay.box_id || 'box'}_${activeReceiptPay.payment_period.replace(/\s+/g, '_')}.png`}
+                <button 
+                  onClick={handleShareReceiptImage}
                   className="btn btn-primary"
-                  style={{ width: '100%', textDecoration: 'none' }}
+                  style={{ width: '100%' }}
                 >
-                  <Download size={16} /> {language === 'ta' ? 'படம் பதிவிறக்கு' : 'Download Receipt Image'}
-                </a>
+                  <Share2 size={16} /> {language === 'ta' ? 'ரசீதை பகிர்க / சேமி' : 'Share / Save Receipt Image'}
+                </button>
               )}
               
               <button 

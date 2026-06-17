@@ -136,7 +136,7 @@ export const dbService = {
           throw new Error('User not found.');
         }
         if (found.disabled) {
-          throw new Error('This user account has been disabled/blocked by Kairos Edio Technologies.');
+          throw new Error('This user account has been disabled/blocked by Kairos Eido Technologies.');
         }
         
         const match = found.password === hashedPassword || 
@@ -178,7 +178,7 @@ export const dbService = {
         }
 
         if (profile.disabled) {
-          throw new Error('This account has been blocked. Contact Kairos Edio Technologies.');
+          throw new Error('This account has been blocked. Contact Kairos Eido Technologies.');
         }
 
         // Auto-migrate plaintext password to hashed format in the database

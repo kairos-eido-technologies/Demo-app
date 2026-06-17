@@ -4,7 +4,7 @@ import {
   Search, ShieldAlert, Ban, CheckCircle2, AlertCircle, RefreshCw,
   LogOut, Smartphone, Check, Moon, Sun, ArrowRight, UserCheck, Trash2, Edit2, Info, Share2, Copy,
   Wifi, Battery, Award, TrendingUp, MapPin, BarChart3, Layers, Filter, Globe,
-  ChevronDown, ChevronUp
+  ChevronDown, ChevronUp, QrCode, ExternalLink
 } from 'lucide-react';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
@@ -115,7 +115,14 @@ const TRANSLATIONS = {
     september: 'September',
     october: 'October',
     november: 'November',
-    december: 'December'
+    december: 'December',
+    upiGenerator: 'UPI QR Generator',
+    upiId: 'Payee UPI ID',
+    generateQr: 'Generate QR & Pay Link',
+    payAmount: 'Payment Amount (₹)',
+    billingNote: 'Payment Note',
+    launchApp: 'Launch Payment App',
+    copyPayLink: 'Copy Pay Link'
   },
   ta: {
     dashboard: 'முகப்பு',
@@ -218,7 +225,14 @@ const TRANSLATIONS = {
     september: 'செப்டம்பர்',
     october: 'அக்டோபர்',
     november: 'நவம்பர்',
-    december: 'டிசம்பர்'
+    december: 'டிசம்பர்',
+    upiGenerator: 'UPI QR குறியீடு தயாரிப்பாளர்',
+    upiId: 'UPI முகவரி',
+    generateQr: 'QR & இணைப்பை உருவாக்கு',
+    payAmount: 'தொகை (₹)',
+    billingNote: 'குறிப்பு',
+    launchApp: 'பணம் செலுத்தும் செயலியைத் திற',
+    copyPayLink: 'இணைப்பை நகலெடு'
   }
 };
 
@@ -253,6 +267,13 @@ export default function App() {
   const [receiptImageSrc, setReceiptImageSrc] = useState(null);
   const [activeReceiptPay, setActiveReceiptPay] = useState(null);
   const [activeReceiptCust, setActiveReceiptCust] = useState(null);
+
+  // UPI Generator States
+  const [upiIdInput, setUpiIdInput] = useState(() => localStorage.getItem('kairos_saved_upi') || '');
+  const [upiAmountInput, setUpiAmountInput] = useState('350');
+  const [upiNoteInput, setUpiNoteInput] = useState('Cable TV Payment');
+  const [generatedUpiQrSrc, setGeneratedUpiQrSrc] = useState('');
+  const [generatedUpiUrl, setGeneratedUpiUrl] = useState('');
 
   // Form States
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
@@ -894,6 +915,30 @@ export default function App() {
       setPayments([]);
       setAuditLogs([]);
     }
+  };
+
+  const handleGenerateUpiQr = (e) => {
+    if (e) e.preventDefault();
+    if (!upiIdInput.trim()) {
+      showError('Please enter a valid UPI ID');
+      return;
+    }
+    const cleanVpa = upiIdInput.trim();
+    localStorage.setItem('kairos_saved_upi', cleanVpa);
+    
+    const bizName = currentBusiness?.business_name || 'Cable TV';
+    const amount = parseFloat(upiAmountInput) || 0;
+    const cleanNote = upiNoteInput.trim() || 'Cable TV Payment';
+
+    // Build the UPI URL: upi://pay?pa=...&pn=...&am=...&cu=INR&tn=...
+    const upiUrl = `upi://pay?pa=${cleanVpa}&pn=${encodeURIComponent(bizName)}&am=${amount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(cleanNote)}`;
+    
+    // Set the QR image URL from api.qrserver.com
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&margin=10&data=${encodeURIComponent(upiUrl)}`;
+
+    setGeneratedUpiUrl(upiUrl);
+    setGeneratedUpiQrSrc(qrUrl);
+    showSuccess('UPI QR Code and link generated successfully!');
   };
 
   const handleCreateBusiness = async (e) => {
@@ -1862,7 +1907,7 @@ public class MainActivity extends BridgeActivity {
 
           <div style={{ marginTop: '28px', textAlign: 'center', borderTop: '1px solid var(--neutral-100)', paddingTop: '20px' }}>
             <p style={{ fontSize: '11px', color: 'var(--neutral-400)', fontWeight: 600, lineHeight: 1.5 }}>
-              Security protocol by <strong>Kairos Edio Technologies</strong>.<br />Self-registration is deactivated on this gateway.
+              Self-registration is deactivated on this gateway.
             </p>
           </div>
         </div>
@@ -3097,6 +3142,100 @@ public class MainActivity extends BridgeActivity {
                   தமிழ் (Tamil)
                 </button>
               </div>
+            </div>
+
+            {/* UPI Payment Generator Card */}
+            <div className="card" style={{ padding: '18px', marginBottom: '20px' }}>
+              <h4 style={{ fontSize: '13px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--neutral-400)', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <QrCode size={16} /> {t('upiGenerator')}
+              </h4>
+              
+              <form onSubmit={handleGenerateUpiQr} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '11px' }}>{t('upiId')}</label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    placeholder="e.g. business@upi" 
+                    value={upiIdInput}
+                    onChange={(e) => setUpiIdInput(e.target.value)}
+                    style={{ padding: '10px 14px', fontSize: '13px' }}
+                    required
+                  />
+                </div>
+                
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                    <label className="form-label" style={{ fontSize: '11px' }}>{t('payAmount')}</label>
+                    <input 
+                      type="number" 
+                      className="form-input" 
+                      placeholder="Amount" 
+                      value={upiAmountInput}
+                      onChange={(e) => setUpiAmountInput(e.target.value)}
+                      style={{ padding: '10px 14px', fontSize: '13px' }}
+                      required
+                    />
+                  </div>
+                  <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                    <label className="form-label" style={{ fontSize: '11px' }}>{t('billingNote')}</label>
+                    <input 
+                      type="text" 
+                      className="form-input" 
+                      placeholder="Note" 
+                      value={upiNoteInput}
+                      onChange={(e) => setUpiNoteInput(e.target.value)}
+                      style={{ padding: '10px 14px', fontSize: '13px' }}
+                    />
+                  </div>
+                </div>
+
+                <button 
+                  type="submit" 
+                  className="btn btn-primary icon-align" 
+                  style={{ width: '100%', padding: '12px', fontSize: '13px', justifyContent: 'center' }}
+                >
+                  <QrCode size={14} /> {t('generateQr')}
+                </button>
+              </form>
+
+              {generatedUpiQrSrc && (
+                <div className="animate-fade-in" style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', background: 'var(--neutral-50)', padding: '16px', borderRadius: '8px', border: '1px solid var(--neutral-100)' }}>
+                  <div style={{ padding: '8px', background: '#ffffff', borderRadius: '6px', boxShadow: 'var(--shadow-sm)', display: 'inline-block' }}>
+                    <img 
+                      src={generatedUpiQrSrc} 
+                      alt="Scan to Pay UPI" 
+                      style={{ width: '150px', height: '150px', display: 'block' }} 
+                    />
+                  </div>
+                  
+                  <p style={{ fontSize: '11px', color: 'var(--neutral-500)', marginTop: '8px', textAlign: 'center', fontWeight: 500 }}>
+                    Scan with GPay, PhonePe, Paytm or BHIM
+                  </p>
+
+                  <div style={{ display: 'flex', gap: '8px', width: '100%', marginTop: '12px' }}>
+                    <button 
+                      type="button" 
+                      className="btn icon-align"
+                      style={{ flex: 1, padding: '10px', fontSize: '12px', background: 'var(--neutral-100)', color: 'var(--neutral-700)', justifyContent: 'center' }}
+                      onClick={() => {
+                        navigator.clipboard.writeText(generatedUpiUrl);
+                        showSuccess('UPI link copied to clipboard!');
+                      }}
+                    >
+                      <Copy size={12} /> {t('copyPayLink')}
+                    </button>
+
+                    <a 
+                      href={generatedUpiUrl} 
+                      className="btn btn-secondary icon-align"
+                      style={{ flex: 1, padding: '10px', fontSize: '12px', justifyContent: 'center', textDecoration: 'none', background: 'var(--neutral-800)', color: '#ffffff' }}
+                    >
+                      <ExternalLink size={12} /> {t('launchApp')}
+                    </a>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Selection filters */}

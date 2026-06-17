@@ -321,6 +321,10 @@ export default function App() {
   const [adminImportType, setAdminImportType] = useState('customers'); // 'customers', 'payments'
   const [adminImportTargetBiz, setAdminImportTargetBiz] = useState('');
   const [filterLogBusiness, setFilterLogBusiness] = useState('');
+  
+  // Super Admin delete business states
+  const [selectedBusinessToDelete, setSelectedBusinessToDelete] = useState(null);
+  const [deleteConfirmPassword, setDeleteConfirmPassword] = useState('');
 
   // Report Period Filter States
   const [reportFilterMonth, setReportFilterMonth] = useState(new Date().toLocaleDateString('en-US', { month: 'long' }));
@@ -1067,6 +1071,44 @@ export default function App() {
     try {
       await dbService.businesses.setStatus(id, nextStatus, currentUser.id);
       showSuccess(`Business status updated to ${nextStatus}.`);
+      loadData();
+    } catch (err) {
+      showError(err.message);
+    }
+  };
+
+  const handlePromptDeleteBusiness = (biz) => {
+    setSelectedBusinessToDelete(biz);
+    setDeleteConfirmPassword('');
+    setModalType('delete_business_confirm');
+  };
+
+  const handleConfirmDeleteBusiness = async (e) => {
+    e.preventDefault();
+    if (!selectedBusinessToDelete) return;
+    if (!deleteConfirmPassword) {
+      showError('Please enter password to confirm deletion.');
+      return;
+    }
+
+    try {
+      const hashed = await hashPassword(deleteConfirmPassword);
+      const isMatch = currentUser.password === hashed || 
+                      (!currentUser.password && (deleteConfirmPassword === 'admin' || deleteConfirmPassword === 'password123' || deleteConfirmPassword === 'pasword123'));
+      
+      if (!isMatch) {
+        showError('Incorrect password. Deletion aborted.');
+        return;
+      }
+
+      await dbService.businesses.delete(selectedBusinessToDelete.id, currentUser.id);
+      setBusinesses(businesses.filter(b => b.id !== selectedBusinessToDelete.id));
+      setProfiles(profiles.filter(p => p.business_id !== selectedBusinessToDelete.id));
+      
+      setModalType(null);
+      setSelectedBusinessToDelete(null);
+      setDeleteConfirmPassword('');
+      showSuccess(`Business "${selectedBusinessToDelete.business_name}" and all associated data have been permanently deleted.`);
       loadData();
     } catch (err) {
       showError(err.message);
@@ -2413,13 +2455,22 @@ public class MainActivity extends BridgeActivity {
                             </span>
                           </td>
                           <td>
-                            <button
-                              onClick={() => handleToggleBusinessStatus(biz.id, biz.status)}
-                              className="btn btn-secondary"
-                              style={{ padding: '8px 14px', fontSize: '12px', fontWeight: 700 }}
-                            >
-                              {biz.status === 'ACTIVE' ? 'Suspend Account' : 'Re-Activate Account'}
-                            </button>
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                              <button
+                                onClick={() => handleToggleBusinessStatus(biz.id, biz.status)}
+                                className="btn btn-secondary"
+                                style={{ padding: '8px 14px', fontSize: '12px', fontWeight: 700 }}
+                              >
+                                {biz.status === 'ACTIVE' ? 'Suspend Account' : 'Re-Activate Account'}
+                              </button>
+                              <button
+                                onClick={() => handlePromptDeleteBusiness(biz)}
+                                className="btn btn-danger"
+                                style={{ padding: '8px 14px', fontSize: '12px', fontWeight: 700 }}
+                              >
+                                Delete Business
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -2934,6 +2985,56 @@ public class MainActivity extends BridgeActivity {
                   </button>
                   <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>
                     Provision Login
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {modalType === 'delete_business_confirm' && selectedBusinessToDelete && (
+          <div className="modal-overlay">
+            <div className="card animate-fade-in" style={{ width: 'calc(100% - 32px)', maxWidth: '480px', maxHeight: '90vh', overflowY: 'auto', background: '#ffffff', padding: '24px', border: '1px solid var(--neutral-200)', zIndex: 1010 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--danger)', marginBottom: '16px' }}>
+                <ShieldAlert size={28} style={{ flexShrink: 0 }} />
+                <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 800 }}>Confirm Deletion</h3>
+              </div>
+              <p style={{ fontSize: '13.5px', color: 'var(--neutral-600)', lineHeight: 1.5, marginBottom: '20px' }}>
+                You are about to permanently delete <strong>{selectedBusinessToDelete.business_name}</strong>. This action is highly destructive and will delete:
+              </p>
+              <ul style={{ fontSize: '12.5px', color: 'var(--neutral-500)', paddingLeft: '20px', marginBottom: '20px', lineHeight: 1.6 }}>
+                <li>All customer registries and settings</li>
+                <li>All payment collection history and receipts</li>
+                <li>All assigned employee logins and credentials</li>
+                <li>All audit records associated with this business</li>
+              </ul>
+              <form onSubmit={handleConfirmDeleteBusiness}>
+                <div className="form-group" style={{ marginBottom: '24px' }}>
+                  <label className="form-label" style={{ fontWeight: 700 }}>Confirm Super Admin Password</label>
+                  <input
+                    type="password"
+                    className="form-input"
+                    placeholder="Enter super admin password"
+                    value={deleteConfirmPassword}
+                    onChange={(e) => setDeleteConfirmPassword(e.target.value)}
+                    required
+                  />
+                </div>
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  <button 
+                    type="button" 
+                    onClick={() => {
+                      setModalType(null);
+                      setSelectedBusinessToDelete(null);
+                      setDeleteConfirmPassword('');
+                    }} 
+                    className="btn btn-secondary" 
+                    style={{ flex: 1 }}
+                  >
+                    Cancel
+                  </button>
+                  <button type="submit" className="btn btn-danger" style={{ flex: 1 }}>
+                    Permanently Delete
                   </button>
                 </div>
               </form>

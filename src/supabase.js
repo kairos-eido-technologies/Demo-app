@@ -305,6 +305,59 @@ export const dbService = {
         await dbService.auditLogs.create('SET_BUSINESS_STATUS', 'businesses', id, { status }, adminUserId);
         return data;
       }
+    },
+
+    delete: async (id, adminUserId) => {
+      if (isMock) {
+        // Remove business
+        const bizList = mockDB.getBusinesses().filter(b => b.id !== id);
+        mockDB.setBusinesses(bizList);
+        
+        // Remove users/profiles
+        const profList = mockDB.getProfiles().filter(p => p.business_id !== id);
+        mockDB.setProfiles(profList);
+
+        // Remove customers
+        const custList = mockDB.getCustomers().filter(c => c.business_id !== id);
+        mockDB.setCustomers(custList);
+
+        // Remove payments
+        const payList = mockDB.getPayments().filter(p => p.business_id !== id);
+        mockDB.setPayments(payList);
+
+        // Remove audit logs
+        const auditList = mockDB.getAudits().filter(a => a.business_id !== id);
+        mockDB.setAudits(auditList);
+
+        // Log this action (associated with system since business is gone)
+        await dbService.auditLogs.create('DELETE_BUSINESS', 'businesses', id, { businessId: id }, adminUserId);
+        return true;
+      } else {
+        // Sequential deletions in Supabase to be robust
+        // 1. Delete payments
+        const { error: errPay } = await realSupabase.from('payments').delete().eq('business_id', id);
+        if (errPay) throw errPay;
+        
+        // 2. Delete customers
+        const { error: errCust } = await realSupabase.from('customers').delete().eq('business_id', id);
+        if (errCust) throw errCust;
+
+        // 3. Delete profiles/logins
+        const { error: errProf } = await realSupabase.from('profiles').delete().eq('business_id', id);
+        if (errProf) throw errProf;
+
+        // 4. Delete audit logs
+        const { error: errAudit } = await realSupabase.from('audit_logs').delete().eq('business_id', id);
+        if (errAudit) throw errAudit;
+
+        // 5. Delete business itself
+        const { error: errBiz } = await realSupabase.from('businesses').delete().eq('id', id);
+        if (errBiz) throw errBiz;
+
+        // Log this action
+        await dbService.auditLogs.create('DELETE_BUSINESS', 'businesses', id, { businessId: id }, adminUserId);
+        return true;
+      }
     }
   },
 

@@ -1283,8 +1283,12 @@ export default function App() {
             errors.push(`Row ${index + 2}: Missing required fields (Customer Name, Street Name, Box ID)`);
           } else {
             let assignedWorkerId = null;
-            if (row['Assigned Worker']) {
-              const matched = profiles.find(p => p.name.toLowerCase().includes(row['Assigned Worker'].toLowerCase()));
+            const workerVal = row['Assigned Worker'] || row['Assigned Worker Name'] || row['Worker'];
+            if (workerVal) {
+              const matched = profiles.find(p => 
+                p.business_id === currentUser.business_id && 
+                p.name.toLowerCase().includes(workerVal.trim().toLowerCase())
+              );
               if (matched) assignedWorkerId = matched.id;
             }
             validRows.push({
@@ -1340,33 +1344,88 @@ export default function App() {
             if (!row['Customer Name'] || !row['Street Name'] || !row['Box ID']) {
               errors.push(`Row ${index + 2}: Missing required fields (Customer Name, Street Name, Box ID)`);
             } else {
+              let assignedWorkerId = null;
+              const workerVal = row['Assigned Worker'] || row['Assigned Worker Name'] || row['Worker'];
+              if (workerVal) {
+                const matched = profiles.find(p => 
+                  p.business_id === adminImportTargetBiz && 
+                  p.name.toLowerCase().includes(workerVal.trim().toLowerCase())
+                );
+                if (matched) assignedWorkerId = matched.id;
+              }
               validRows.push({
                 customer_name: row['Customer Name'].trim(),
                 street_name: normalizeStreetName(row['Street Name']),
                 box_id: row['Box ID'].trim(),
                 phone_number: row['Phone Number'] ? row['Phone Number'].trim() : '',
                 connection_status: row['Status']?.toUpperCase() === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE',
-                assigned_worker_id: null,
+                assigned_worker_id: assignedWorkerId,
                 notes: row['Notes'] || ''
               });
             }
           });
         } else {
-          rows.forEach((row, index) => {
-            if (!row['Box ID'] || !row['Amount'] || !row['Payment Date'] || !row['Payment Period']) {
-              errors.push(`Row ${index + 2}: Missing required fields (Box ID, Amount, Payment Date, Payment Period)`);
-            } else {
-              validRows.push({
-                box_id: row['Box ID'].trim(),
-                amount: parseFloat(row['Amount']),
-                payment_date: row['Payment Date'].trim(),
-                payment_period: row['Payment Period'].trim(),
-                notes: row['Notes'] || '',
-                status: 'Paid',
-                customer_id: 'c-1'
+          // Fetch existing customers for verification and UUID mapping
+          let bizCustomers = [];
+          try {
+            // Need to run synchronously inside callback, fetch custom list
+            bizCustomers = mockDB.isMock && mockDB.isMock() 
+              ? mockDB.getCustomers().filter(c => c.business_id === adminImportTargetBiz) 
+              : [];
+          } catch (e) {
+            console.error(e);
+          }
+
+          // We will fetch via API async
+          dbService.customers.list(adminImportTargetBiz).then(bizCustomers => {
+            const customerMap = {};
+            bizCustomers.forEach(c => {
+              if (c.box_id) {
+                customerMap[c.box_id.trim().toLowerCase()] = c.id;
+              }
+            });
+
+            rows.forEach((row, index) => {
+              if (!row['Box ID'] || !row['Amount'] || !row['Payment Date'] || !row['Payment Period']) {
+                errors.push(`Row ${index + 2}: Missing required fields (Box ID, Amount, Payment Date, Payment Period)`);
+              } else {
+                const boxId = row['Box ID'].trim();
+                const custId = customerMap[boxId.toLowerCase()];
+                if (!custId) {
+                  errors.push(`Row ${index + 2}: Customer with Box ID "${boxId}" not found in this business client.`);
+                } else {
+                  validRows.push({
+                    box_id: boxId,
+                    amount: parseFloat(row['Amount']) || 0,
+                    payment_date: row['Payment Date'].trim(),
+                    payment_period: row['Payment Period'].trim(),
+                    notes: row['Notes'] || '',
+                    status: 'Paid',
+                    customer_id: custId
+                  });
+                }
+              }
+            });
+
+            if (errors.length > 0) {
+              alert(`Validation Failed:\n${errors.slice(0, 5).join('\n')}\n${errors.length > 5 ? `...and ${errors.length - 5} more errors.` : ''}`);
+              return;
+            }
+
+            if (validRows.length === 0) return showError('No records found in CSV.');
+
+            if (window.confirm(`Create ${validRows.length} payment records for the selected business?`)) {
+              dbService.payments.bulkImport(validRows, adminImportTargetBiz, currentUser.id).then(() => {
+                showSuccess(`Admin: Imported ${validRows.length} payment records successfully.`);
+                loadData();
+              }).catch(err => {
+                showError(err.message);
               });
             }
+          }).catch(err => {
+            showError('Failed to fetch business customers: ' + err.message);
           });
+          return; // Asynchronous flow is handled by promise
         }
 
         if (errors.length > 0) {
@@ -1690,6 +1749,20 @@ public class MainActivity extends BridgeActivity {
     return result;
   }, [currentUser, customers, searchQuery, filterWorker, filterStatus, filterStreet, customerViewMode]);
 
+  const existingStreets = useMemo(() => {
+    const streets = customers.map(c => c.street_name?.trim()).filter(Boolean);
+    const unique = [];
+    const lowercased = new Set();
+    streets.forEach(s => {
+      const lower = s.toLowerCase();
+      if (!lowercased.has(lower)) {
+        lowercased.add(lower);
+        unique.push(s);
+      }
+    });
+    return unique.sort((a, b) => a.localeCompare(b));
+  }, [customers]);
+
   const customersGroupedByStreet = useMemo(() => {
     const groups = {};
     filteredCustomers.forEach(c => {
@@ -1910,6 +1983,42 @@ public class MainActivity extends BridgeActivity {
               Self-registration is deactivated on this gateway.
             </p>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  // --- ACCOUNT SUSPENDED SCREEN OVERLAY ---
+  if (currentUser && currentUser.role !== 'SUPER_ADMIN' && currentBusiness?.status === 'SUSPENDED') {
+    return (
+      <div style={{
+        height: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'radial-gradient(circle at 10% 20%, var(--neutral-800) 0%, var(--neutral-900) 90%)',
+        color: '#ffffff',
+        textAlign: 'center',
+        padding: '20px'
+      }}>
+        <div className="card animate-fade-in" style={{ width: 'calc(100% - 32px)', maxWidth: '420px', padding: '40px', background: '#ffffff', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-lg)', color: 'var(--neutral-900)' }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '64px', height: '64px', background: 'var(--danger-bg)', color: 'var(--danger)', borderRadius: '50%', marginBottom: '20px' }}>
+            <Ban size={32} />
+          </div>
+          <h2 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--neutral-900)', marginBottom: '10px' }}>
+            Account Suspended
+          </h2>
+          <p style={{ fontSize: '13px', color: 'var(--neutral-500)', lineHeight: 1.5, marginBottom: '24px' }}>
+            Your business subscription has been suspended by the administrator. Access to the dashboard and database has been locked. Please contact support.
+          </p>
+          <button 
+            onClick={handleLogout} 
+            className="btn btn-danger" 
+            style={{ width: '100%', padding: '12px', justifyContent: 'center' }}
+          >
+            <LogOut size={16} /> Log Out
+          </button>
         </div>
       </div>
     );
@@ -2488,7 +2597,7 @@ public class MainActivity extends BridgeActivity {
 
         {modalType === 'add_business' && (
           <div className="modal-overlay">
-            <div className="card animate-fade-in" style={{ width: '100%', maxWidth: '480px', background: '#ffffff', padding: '32px', border: '1px solid var(--neutral-200)', zIndex: 1010 }}>
+            <div className="card animate-fade-in" style={{ width: 'calc(100% - 32px)', maxWidth: '480px', maxHeight: '90vh', overflowY: 'auto', background: '#ffffff', padding: '24px', border: '1px solid var(--neutral-200)', zIndex: 1010 }}>
               <h3 style={{ marginBottom: '24px', fontSize: '20px' }}>Register Client Business</h3>
               <form onSubmit={handleCreateBusiness}>
                 <div className="form-group">
@@ -2517,7 +2626,7 @@ public class MainActivity extends BridgeActivity {
 
         {modalType === 'add_user' && (
           <div className="modal-overlay">
-            <div className="card animate-fade-in" style={{ width: '100%', maxWidth: '540px', background: '#ffffff', padding: '32px', border: '1px solid var(--neutral-200)', zIndex: 1010 }}>
+            <div className="card animate-fade-in" style={{ width: 'calc(100% - 32px)', maxWidth: '480px', maxHeight: '90vh', overflowY: 'auto', background: '#ffffff', padding: '24px', border: '1px solid var(--neutral-200)', zIndex: 1010 }}>
               <h3 style={{ marginBottom: '24px', fontSize: '20px' }}>Provision Operator Account</h3>
               <form onSubmit={handleCreateUser}>
                 <div className="form-group">
@@ -3371,6 +3480,7 @@ public class MainActivity extends BridgeActivity {
                   type="text"
                   className="form-input"
                   placeholder="e.g. Park Road"
+                  list="existing-streets-list"
                   value={customerForm.street_name}
                   onChange={(e) => setCustomerForm({ ...customerForm, street_name: e.target.value })}
                   required
@@ -3454,6 +3564,7 @@ public class MainActivity extends BridgeActivity {
                 <input
                   type="text"
                   className="form-input"
+                  list="existing-streets-list"
                   value={customerForm.street_name}
                   onChange={(e) => setCustomerForm({ ...customerForm, street_name: e.target.value })}
                   required
@@ -4133,6 +4244,13 @@ public class MainActivity extends BridgeActivity {
           <span>{t('reports')}</span>
         </button>
       </nav>
+
+      {/* Existing Streets Datalist for Autocomplete */}
+      <datalist id="existing-streets-list">
+        {existingStreets.map(street => (
+          <option key={street} value={street} />
+        ))}
+      </datalist>
     </div>
   );
 

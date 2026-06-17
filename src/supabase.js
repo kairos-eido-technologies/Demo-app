@@ -294,6 +294,14 @@ export const dbService = {
       } else {
         const { data, error } = await realSupabase.from('businesses').update({ status }).eq('id', id).select().single();
         if (error) throw error;
+
+        // Disable all profiles belonging to this business if suspended, or enable them if active
+        if (status === 'SUSPENDED') {
+          await realSupabase.from('profiles').update({ disabled: true }).eq('business_id', id);
+        } else if (status === 'ACTIVE') {
+          await realSupabase.from('profiles').update({ disabled: false }).eq('business_id', id);
+        }
+
         await dbService.auditLogs.create('SET_BUSINESS_STATUS', 'businesses', id, { status }, adminUserId);
         return data;
       }

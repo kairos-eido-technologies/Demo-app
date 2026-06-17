@@ -603,6 +603,8 @@ h1, h2, h3, h4, h5, h6 {
   z-index: 1010;
   transform: translateY(100%);
   animation: slideInUp var(--transition-normal) forwards;
+  max-height: 90%;
+  overflow-y: auto;
 }
 
 .sheet-handle {

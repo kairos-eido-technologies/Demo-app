@@ -3144,17 +3144,19 @@ public class MainActivity extends BridgeActivity {
                   </div>
                 </div>
 
-                <div className="card" style={{ padding: '16px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                <div className="card" style={{ padding: '14px 18px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span className="card-title" style={{ fontSize: '11px', margin: 0 }}>{t('subscribers')}:</span>
+                    <span className="card-title" style={{ fontSize: '11px', fontWeight: 600, color: 'var(--neutral-400)', textTransform: 'uppercase', margin: 0 }}>Total:</span>
                     <strong style={{ fontSize: '15px', color: 'var(--neutral-900)' }}>{stats?.totalCusts}</strong>
                   </div>
+                  <div style={{ width: '1px', height: '16px', background: 'var(--neutral-200)' }}></div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span className="card-title" style={{ fontSize: '11px', margin: 0, color: 'var(--success)' }}>Paid:</span>
+                    <span className="card-title" style={{ fontSize: '11px', fontWeight: 600, color: 'var(--success)', textTransform: 'uppercase', margin: 0 }}>Paid:</span>
                     <strong style={{ fontSize: '15px', color: 'var(--success)' }}>{totalPaidCustomersCount}</strong>
                   </div>
+                  <div style={{ width: '1px', height: '16px', background: 'var(--neutral-200)' }}></div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span className="card-title" style={{ fontSize: '11px', margin: 0, color: 'var(--danger)' }}>Unpaid:</span>
+                    <span className="card-title" style={{ fontSize: '11px', fontWeight: 600, color: 'var(--danger)', textTransform: 'uppercase', margin: 0 }}>Unpaid:</span>
                     <strong style={{ fontSize: '15px', color: 'var(--danger)' }}>{totalUnpaidCustomersCount}</strong>
                   </div>
                 </div>
@@ -3337,19 +3339,21 @@ public class MainActivity extends BridgeActivity {
               </div>
             )}
 
-            <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
-              <div style={{ flex: 1, minWidth: '100px', padding: '10px 14px', background: 'var(--neutral-100)', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid var(--neutral-200)' }}>
-                <span style={{ fontSize: '11px', textTransform: 'uppercase', color: 'var(--neutral-500)', fontWeight: 700 }}>Total</span>
-                <strong style={{ fontSize: '14px', color: 'var(--neutral-800)' }}>{filteredCustomers.length}</strong>
+            <div className="card" style={{ padding: '12px 14px', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', background: 'var(--neutral-50)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span className="card-title" style={{ fontSize: '11px', fontWeight: 600, color: 'var(--neutral-400)', textTransform: 'uppercase', margin: 0 }}>Total:</span>
+                <strong style={{ fontSize: '14px', color: 'var(--neutral-900)' }}>{filteredCustomers.length}</strong>
               </div>
-              <div style={{ flex: 1, minWidth: '100px', padding: '10px 14px', background: 'rgba(16, 185, 129, 0.08)', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid rgba(16, 185, 129, 0.15)' }}>
-                <span style={{ fontSize: '11px', textTransform: 'uppercase', color: 'var(--success)', fontWeight: 700 }}>Paid</span>
+              <div style={{ width: '1px', height: '16px', background: 'var(--neutral-200)' }}></div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span className="card-title" style={{ fontSize: '11px', fontWeight: 600, color: 'var(--success)', textTransform: 'uppercase', margin: 0 }}>Paid:</span>
                 <strong style={{ fontSize: '14px', color: 'var(--success)' }}>
                   {filteredCustomers.filter(c => getDueMonths(c, payments).length === 0).length}
                 </strong>
               </div>
-              <div style={{ flex: 1, minWidth: '100px', padding: '10px 14px', background: 'rgba(239, 68, 68, 0.08)', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid rgba(239, 68, 68, 0.15)' }}>
-                <span style={{ fontSize: '11px', textTransform: 'uppercase', color: 'var(--danger)', fontWeight: 700 }}>Unpaid</span>
+              <div style={{ width: '1px', height: '16px', background: 'var(--neutral-200)' }}></div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span className="card-title" style={{ fontSize: '11px', fontWeight: 600, color: 'var(--danger)', textTransform: 'uppercase', margin: 0 }}>Unpaid:</span>
                 <strong style={{ fontSize: '14px', color: 'var(--danger)' }}>
                   {filteredCustomers.filter(c => getDueMonths(c, payments).length > 0).length}
                 </strong>

@@ -481,14 +481,14 @@ export default function App() {
     }
 
     const paidPeriods = allPayments
-      .filter(p => p.customer_id === customer.id && p.status === 'Paid')
-      .map(p => p.payment_period);
+      .filter(p => p.customer_id === customer.id && p.status?.toLowerCase() === 'paid')
+      .map(p => p.payment_period?.trim()?.toLowerCase());
 
-    return duePeriods.filter(p => !paidPeriods.includes(p));
+    return duePeriods.filter(p => !paidPeriods.includes(p.toLowerCase()));
   };
 
   const getWorkerUnpaidCustomers = (workerId) => {
-    const assignedCusts = customers.filter(c => c.assigned_worker_id === workerId && c.connection_status === 'ACTIVE');
+    const assignedCusts = customers.filter(c => c.assigned_worker_id === workerId && c.connection_status?.toUpperCase() === 'ACTIVE');
     return assignedCusts.filter(cust => {
       const unpaid = getDueMonths(cust, payments);
       return unpaid.length > 0;
@@ -649,7 +649,7 @@ export default function App() {
   };
 
   const isMonthPaid = (cust, period, allPayments) => {
-    return allPayments.some(p => p.customer_id === cust.id && p.payment_period === period && p.status === 'Paid');
+    return allPayments.some(p => p.customer_id === cust.id && p.payment_period?.trim()?.toLowerCase() === period?.trim()?.toLowerCase() && p.status?.toLowerCase() === 'paid');
   };
 
   const sendDueReminder = (cust, unpaidMonths, mode = 'whatsapp') => {
@@ -1652,7 +1652,7 @@ export default function App() {
   // MONTHLY REPORT EXPORTS
   // -------------------------------------------------------------
   const handleExportMonthlyReport = async (filterM = reportFilterMonth, filterY = reportFilterYear, targetWorkerId = null) => {
-    let list = payments.filter(p => p.status === 'Paid');
+    let list = payments.filter(p => p.status?.toLowerCase() === 'paid');
     
     list = list.filter(p => {
       if (filterM === 'All' && filterY === 'All') return true;
@@ -1894,7 +1894,7 @@ public class MainActivity extends BridgeActivity {
     let result = [...customers];
     
     // Workers should only see their assigned customer accounts
-    if (currentUser && currentUser.role === 'WORKER') {
+    if (currentUser && currentUser.role?.toUpperCase() === 'WORKER') {
       result = result.filter(c => c.assigned_worker_id === currentUser.id);
     }
 
@@ -1908,8 +1908,8 @@ public class MainActivity extends BridgeActivity {
     }
 
     if (filterWorker) result = result.filter(c => c.assigned_worker_id === filterWorker);
-    if (filterStatus) result = result.filter(c => c.connection_status === filterStatus);
-    if (filterStreet) result = result.filter(c => normalizeStreetName(c.street_name) === normalizeStreetName(filterStreet));
+    if (filterStatus) result = result.filter(c => c.connection_status?.toUpperCase() === filterStatus.toUpperCase());
+    if (filterStreet) result = result.filter(c => (c.street_name || '').toLowerCase().trim() === filterStreet.toLowerCase().trim());
 
     if (customerViewMode === 'box_id') {
       result.sort((a, b) => a.box_id.localeCompare(b.box_id));
@@ -1922,7 +1922,7 @@ public class MainActivity extends BridgeActivity {
 
   const filteredLedgerPayments = useMemo(() => {
     if (!currentUser) return [];
-    let list = currentUser.role === 'WORKER' 
+    let list = currentUser.role?.toUpperCase() === 'WORKER' 
       ? payments.filter(p => p.worker_id === currentUser.id) 
       : payments;
       
@@ -1933,11 +1933,13 @@ public class MainActivity extends BridgeActivity {
         const customerName = cust ? cust.customer_name.toLowerCase() : '';
         const boxId = pay.box_id ? pay.box_id.toLowerCase() : '';
         const date = pay.payment_date ? pay.payment_date.toLowerCase() : '';
-        return customerName.includes(q) || boxId.includes(q) || date.includes(q);
+        const wrk = profiles.find(p => p.id === pay.worker_id);
+        const workerName = wrk ? wrk.name.toLowerCase() : 'direct/admin';
+        return customerName.includes(q) || boxId.includes(q) || date.includes(q) || workerName.includes(q);
       });
     }
     return [...list].sort((a, b) => b.payment_date.localeCompare(a.payment_date));
-  }, [payments, customers, ledgerSearchQuery, currentUser]);
+  }, [payments, customers, profiles, ledgerSearchQuery, currentUser]);
 
   const existingStreets = useMemo(() => {
     const streets = customers.map(c => c.street_name?.trim()).filter(Boolean);
@@ -2005,11 +2007,11 @@ public class MainActivity extends BridgeActivity {
     const tenantPays = payments;
     
     // Total (All Time) Collections
-    const globalTotalCollected = tenantPays.filter(p => p.status === 'Paid').reduce((sum, p) => sum + parseFloat(p.amount), 0);
+    const globalTotalCollected = tenantPays.filter(p => p.status?.toLowerCase() === 'paid').reduce((sum, p) => sum + parseFloat(p.amount), 0);
 
     // Today Collections
     const todayStr = new Date().toISOString().split('T')[0];
-    const globalTodayCollected = tenantPays.filter(p => p.status === 'Paid' && p.payment_date === todayStr).reduce((sum, p) => sum + parseFloat(p.amount), 0);
+    const globalTodayCollected = tenantPays.filter(p => p.status?.toLowerCase() === 'paid' && p.payment_date === todayStr).reduce((sum, p) => sum + parseFloat(p.amount), 0);
 
     const monthFilteredPays = tenantPays.filter(p => {
       if (reportFilterMonth === 'All' && reportFilterYear === 'All') return true;
@@ -2021,18 +2023,18 @@ public class MainActivity extends BridgeActivity {
       return true;
     });
 
-    const reportCollected = monthFilteredPays.filter(p => p.status === 'Paid').reduce((sum, p) => sum + parseFloat(p.amount), 0);
+    const reportCollected = monthFilteredPays.filter(p => p.status?.toLowerCase() === 'paid').reduce((sum, p) => sum + parseFloat(p.amount), 0);
 
     const workerPerformance = {};
     monthFilteredPays.forEach(p => {
-      if (p.status === 'Paid' && p.worker_id) {
+      if (p.status?.toLowerCase() === 'paid' && p.worker_id) {
         workerPerformance[p.worker_id] = (workerPerformance[p.worker_id] || 0) + parseFloat(p.amount);
       }
     });
 
     const streetPerformance = {};
     monthFilteredPays.forEach(p => {
-      if (p.status === 'Paid') {
+      if (p.status?.toLowerCase() === 'paid') {
         const cust = tenantCusts.find(c => c.id === p.customer_id);
         if (cust) {
           const streetKey = normalizeStreetName(cust.street_name);
@@ -2042,8 +2044,8 @@ public class MainActivity extends BridgeActivity {
     });
 
     // Worker collections count
-    const myTodayColl = payments.filter(p => p.worker_id === currentUser.id && p.status === 'Paid' && p.payment_date === todayStr).reduce((sum, p) => sum + parseFloat(p.amount), 0);
-    const myTotalColl = payments.filter(p => p.worker_id === currentUser.id && p.status === 'Paid').reduce((sum, p) => sum + parseFloat(p.amount), 0);
+    const myTodayColl = payments.filter(p => p.worker_id === currentUser.id && p.status?.toLowerCase() === 'paid' && p.payment_date === todayStr).reduce((sum, p) => sum + parseFloat(p.amount), 0);
+    const myTotalColl = payments.filter(p => p.worker_id === currentUser.id && p.status?.toLowerCase() === 'paid').reduce((sum, p) => sum + parseFloat(p.amount), 0);
     const myCustomersCount = customers.filter(c => c.assigned_worker_id === currentUser.id).length;
 
     return {
@@ -2072,17 +2074,17 @@ public class MainActivity extends BridgeActivity {
   }, [payments]);
 
   const totalUnpaidCustomersCount = useMemo(() => {
-    return customers.filter(c => c.connection_status === 'ACTIVE' && getDueMonths(c, payments).length > 0).length;
+    return customers.filter(c => c.connection_status?.toUpperCase() === 'ACTIVE' && getDueMonths(c, payments).length > 0).length;
   }, [customers, payments]);
 
   const totalPaidCustomersCount = useMemo(() => {
-    return customers.filter(c => c.connection_status === 'ACTIVE' && getDueMonths(c, payments).length === 0).length;
+    return customers.filter(c => c.connection_status?.toUpperCase() === 'ACTIVE' && getDueMonths(c, payments).length === 0).length;
   }, [customers, payments]);
 
   // Get specific worker performance metrics
   const getWorkerProgressMetrics = (workerId) => {
     const assignedCusts = customers.filter(c => c.assigned_worker_id === workerId);
-    const workerPays = payments.filter(p => p.worker_id === workerId && p.status === 'Paid');
+    const workerPays = payments.filter(p => p.worker_id === workerId && p.status?.toLowerCase() === 'paid');
 
     const todayStr = new Date().toISOString().split('T')[0];
     const todayCollected = workerPays.filter(p => p.payment_date === todayStr).reduce((sum, p) => sum + parseFloat(p.amount), 0);
@@ -3155,18 +3157,14 @@ public class MainActivity extends BridgeActivity {
                     <span className="card-title" style={{ fontSize: '10px', display: 'block', color: 'var(--danger)' }}>Unpaid Customers</span>
                     <strong style={{ fontSize: '20px', color: 'var(--danger)' }}>{totalUnpaidCustomersCount}</strong>
                   </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <span className="card-title" style={{ fontSize: '10px', display: 'block' }}>{t('activeNodes')}</span>
-                    <strong style={{ fontSize: '20px', color: 'var(--accent-500)' }}>{stats?.activeCusts}</strong>
-                  </div>
                 </div>
 
                 {/* Worker collection leagues progress */}
                 <div className="card" style={{ padding: '18px', marginBottom: '20px' }}>
                   <h4 style={{ fontSize: '13px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--neutral-400)', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}><Award size={16} /> {t('workerProgress')}</h4>
                   {profiles.filter(p => p.role === 'WORKER').map(w => {
-                    const todayColl = payments.filter(p => p.worker_id === w.id && p.status === 'Paid' && p.payment_date === new Date().toISOString().split('T')[0]).reduce((sum, p) => sum + parseFloat(p.amount), 0);
-                    const totalColl = payments.filter(p => p.worker_id === w.id && p.status === 'Paid').reduce((sum, p) => sum + parseFloat(p.amount), 0);
+                    const todayColl = payments.filter(p => p.worker_id === w.id && p.status?.toLowerCase() === 'paid' && p.payment_date === new Date().toISOString().split('T')[0]).reduce((sum, p) => sum + parseFloat(p.amount), 0);
+                    const totalColl = payments.filter(p => p.worker_id === w.id && p.status?.toLowerCase() === 'paid').reduce((sum, p) => sum + parseFloat(p.amount), 0);
                     return (
                       <div 
                         key={w.id} 
@@ -3478,8 +3476,8 @@ public class MainActivity extends BridgeActivity {
                                     })}
                                   </div>
                                 </div>
-                                <span className={`badge ${cust.connection_status === 'ACTIVE' ? 'badge-active' : 'badge-inactive'}`} style={{ fontSize: '11px' }}>
-                                  {cust.connection_status === 'ACTIVE' ? t('active') : t('inactive')}
+                                <span className={`badge ${cust.connection_status?.toUpperCase() === 'ACTIVE' ? 'badge-active' : 'badge-inactive'}`} style={{ fontSize: '11px' }}>
+                                  {cust.connection_status?.toUpperCase() === 'ACTIVE' ? t('active') : t('inactive')}
                                 </span>
                               </div>
                             );
@@ -3564,8 +3562,8 @@ public class MainActivity extends BridgeActivity {
                         </div>
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
-                        <span className={`badge ${cust.connection_status === 'ACTIVE' ? 'badge-active' : 'badge-inactive'}`}>
-                          {cust.connection_status === 'ACTIVE' ? t('active') : t('inactive')}
+                        <span className={`badge ${cust.connection_status?.toUpperCase() === 'ACTIVE' ? 'badge-active' : 'badge-inactive'}`}>
+                          {cust.connection_status?.toUpperCase() === 'ACTIVE' ? t('active') : t('inactive')}
                         </span>
                       </div>
                     </div>
@@ -4197,8 +4195,8 @@ public class MainActivity extends BridgeActivity {
                   </button>
                 </p>
               </div>
-              <span className={`badge ${selectedCustomer.connection_status === 'ACTIVE' ? 'badge-active' : 'badge-inactive'}`}>
-                {selectedCustomer.connection_status === 'ACTIVE' ? t('active') : t('inactive')}
+              <span className={`badge ${selectedCustomer.connection_status?.toUpperCase() === 'ACTIVE' ? 'badge-active' : 'badge-inactive'}`}>
+                {selectedCustomer.connection_status?.toUpperCase() === 'ACTIVE' ? t('active') : t('inactive')}
               </span>
             </div>
 
@@ -4724,7 +4722,7 @@ public class MainActivity extends BridgeActivity {
       )}
 
       {/* INSPECT WORKER BOTTOM SHEET (OWNER ONLY) */}
-      {modalType === 'inspect_worker' && selectedWorker && currentUser.role === 'OWNER' && (
+      {modalType === 'inspect_worker' && selectedWorker && currentUser.role?.toUpperCase() === 'OWNER' && (
         <div className="modal-overlay">
           <div className="mobile-sheet animate-slide-in" style={{ maxHeight: '90vh', overflowY: 'auto' }}>
             <div className="sheet-handle"></div>
@@ -4739,7 +4737,7 @@ public class MainActivity extends BridgeActivity {
             </div>
 
             {(() => {
-              const workerPays = payments.filter(p => p.worker_id === selectedWorker.id && p.status === 'Paid');
+              const workerPays = payments.filter(p => p.worker_id === selectedWorker.id && p.status?.toLowerCase() === 'paid');
               
               // Daily calculation
               const dailyPays = workerPays.filter(p => p.payment_date === inspectDate);

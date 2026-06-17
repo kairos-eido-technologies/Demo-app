@@ -285,9 +285,14 @@ export const dbService = {
         await dbService.auditLogs.create('SET_BUSINESS_STATUS', 'businesses', id, { status }, adminUserId);
         
         // Disable all profiles under this business if suspended
-        if (status === 'SUSPENDED') {
+        const statusUpper = status?.toUpperCase();
+        if (statusUpper === 'SUSPENDED') {
           const profiles = mockDB.getProfiles();
           const updated = profiles.map(p => p.business_id === id ? { ...p, disabled: true } : p);
+          mockDB.setProfiles(updated);
+        } else if (statusUpper === 'ACTIVE') {
+          const profiles = mockDB.getProfiles();
+          const updated = profiles.map(p => p.business_id === id ? { ...p, disabled: false } : p);
           mockDB.setProfiles(updated);
         }
         return list[idx];
@@ -296,9 +301,10 @@ export const dbService = {
         if (error) throw error;
 
         // Disable all profiles belonging to this business if suspended, or enable them if active
-        if (status === 'SUSPENDED') {
+        const statusUpper = status?.toUpperCase();
+        if (statusUpper === 'SUSPENDED') {
           await realSupabase.from('profiles').update({ disabled: true }).eq('business_id', id);
-        } else if (status === 'ACTIVE') {
+        } else if (statusUpper === 'ACTIVE') {
           await realSupabase.from('profiles').update({ disabled: false }).eq('business_id', id);
         }
 

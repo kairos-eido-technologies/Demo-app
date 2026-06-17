@@ -2302,12 +2302,10 @@ public class MainActivity extends BridgeActivity {
                   <table className="custom-table">
                     <thead>
                       <tr>
-                        <th>Username</th>
-                        <th>Full Name</th>
+                        <th>Operator User</th>
                         <th>Role Type</th>
                         <th>Assigned Client Business</th>
-                        <th>Phone Number</th>
-                        <th>Login Access Status</th>
+                        <th>Login Access</th>
                         <th>Lock Actions</th>
                       </tr>
                     </thead>
@@ -2316,18 +2314,22 @@ public class MainActivity extends BridgeActivity {
                         const biz = businesses.find(b => b.id === prof.business_id);
                         return (
                           <tr key={prof.id}>
-                            <td><strong>{prof.username}</strong></td>
-                            <td>{prof.name}</td>
                             <td>
-                              <span className="badge badge-active" style={{ background: prof.role === 'SUPER_ADMIN' ? 'var(--primary-50)' : 'var(--neutral-100)', color: prof.role === 'SUPER_ADMIN' ? 'var(--primary-500)' : 'var(--neutral-700)' }}>
+                              <strong>{prof.name}</strong>
+                              <span style={{ display: 'block', fontSize: '11px', color: 'var(--neutral-400)' }}>@{prof.username}</span>
+                            </td>
+                            <td>
+                              <span className="badge badge-active" style={{ background: prof.role === 'SUPER_ADMIN' ? 'var(--primary-50)' : 'var(--neutral-100)', color: prof.role === 'SUPER_ADMIN' ? 'var(--primary-500)' : 'var(--neutral-700)', padding: '2px 8px', fontSize: '11px' }}>
                                 {prof.role}
                               </span>
                             </td>
-                            <td>{biz ? biz.business_name : 'Platform (Kairos)'}</td>
-                            <td>{prof.phone_number || '-'}</td>
                             <td>
-                              <span className={`badge ${!prof.disabled ? 'badge-active' : 'badge-inactive'}`}>
-                                {!prof.disabled ? 'Active Access' : 'Blocked Access'}
+                              <strong>{biz ? biz.business_name : 'Platform (Kairos)'}</strong>
+                              {prof.phone_number && <span style={{ display: 'block', fontSize: '11px', color: 'var(--neutral-400)' }}>Phone: {prof.phone_number}</span>}
+                            </td>
+                            <td>
+                              <span className={`badge ${!prof.disabled ? 'badge-active' : 'badge-inactive'}`} style={{ padding: '2px 8px', fontSize: '11px' }}>
+                                {!prof.disabled ? 'Active' : 'Blocked'}
                               </span>
                             </td>
                             <td>
@@ -2335,10 +2337,10 @@ public class MainActivity extends BridgeActivity {
                                 <button
                                   onClick={() => handleToggleUserDisabled(prof.id, prof.disabled, prof.name)}
                                   className={`btn icon-align ${prof.disabled ? 'btn-primary' : 'btn-danger'}`}
-                                  style={{ padding: '8px 14px', fontSize: '12px', fontWeight: 700 }}
+                                  style={{ padding: '6px 12px', fontSize: '11px', fontWeight: 700 }}
                                 >
                                   {prof.disabled ? <UserCheck size={12} /> : <Ban size={12} />}
-                                  {prof.disabled ? 'Unblock Account' : 'Block User ID'}
+                                  {prof.disabled ? 'Unblock' : 'Block'}
                                 </button>
                               )}
                             </td>

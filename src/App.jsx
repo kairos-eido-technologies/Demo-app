@@ -3145,17 +3145,17 @@ public class MainActivity extends BridgeActivity {
                 </div>
 
                 <div className="card" style={{ padding: '16px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-                  <div>
-                    <span className="card-title" style={{ fontSize: '10px', display: 'block' }}>{t('subscribers')}</span>
-                    <strong style={{ fontSize: '20px', color: 'var(--neutral-900)' }}>{stats?.totalCusts}</strong>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span className="card-title" style={{ fontSize: '11px', margin: 0 }}>{t('subscribers')}:</span>
+                    <strong style={{ fontSize: '15px', color: 'var(--neutral-900)' }}>{stats?.totalCusts}</strong>
                   </div>
-                  <div style={{ textAlign: 'center' }}>
-                    <span className="card-title" style={{ fontSize: '10px', display: 'block', color: 'var(--success)' }}>Paid Customers</span>
-                    <strong style={{ fontSize: '20px', color: 'var(--success)' }}>{totalPaidCustomersCount}</strong>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span className="card-title" style={{ fontSize: '11px', margin: 0, color: 'var(--success)' }}>Paid:</span>
+                    <strong style={{ fontSize: '15px', color: 'var(--success)' }}>{totalPaidCustomersCount}</strong>
                   </div>
-                  <div style={{ textAlign: 'center' }}>
-                    <span className="card-title" style={{ fontSize: '10px', display: 'block', color: 'var(--danger)' }}>Unpaid Customers</span>
-                    <strong style={{ fontSize: '20px', color: 'var(--danger)' }}>{totalUnpaidCustomersCount}</strong>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span className="card-title" style={{ fontSize: '11px', margin: 0, color: 'var(--danger)' }}>Unpaid:</span>
+                    <strong style={{ fontSize: '15px', color: 'var(--danger)' }}>{totalUnpaidCustomersCount}</strong>
                   </div>
                 </div>
 
@@ -3337,20 +3337,20 @@ public class MainActivity extends BridgeActivity {
               </div>
             )}
 
-            <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-              <div style={{ flex: 1, padding: '10px', background: 'var(--neutral-100)', borderRadius: '8px', textAlign: 'center', border: '1px solid var(--neutral-200)' }}>
-                <span style={{ display: 'block', fontSize: '9px', textTransform: 'uppercase', color: 'var(--neutral-500)', fontWeight: 700 }}>Total Accounts</span>
-                <strong style={{ fontSize: '15px', color: 'var(--neutral-800)' }}>{filteredCustomers.length}</strong>
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
+              <div style={{ flex: 1, minWidth: '100px', padding: '10px 14px', background: 'var(--neutral-100)', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid var(--neutral-200)' }}>
+                <span style={{ fontSize: '11px', textTransform: 'uppercase', color: 'var(--neutral-500)', fontWeight: 700 }}>Total</span>
+                <strong style={{ fontSize: '14px', color: 'var(--neutral-800)' }}>{filteredCustomers.length}</strong>
               </div>
-              <div style={{ flex: 1, padding: '10px', background: 'rgba(16, 185, 129, 0.08)', borderRadius: '8px', textAlign: 'center', border: '1px solid rgba(16, 185, 129, 0.15)' }}>
-                <span style={{ display: 'block', fontSize: '9px', textTransform: 'uppercase', color: 'var(--success)', fontWeight: 700 }}>Paid</span>
-                <strong style={{ fontSize: '15px', color: 'var(--success)' }}>
+              <div style={{ flex: 1, minWidth: '100px', padding: '10px 14px', background: 'rgba(16, 185, 129, 0.08)', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid rgba(16, 185, 129, 0.15)' }}>
+                <span style={{ fontSize: '11px', textTransform: 'uppercase', color: 'var(--success)', fontWeight: 700 }}>Paid</span>
+                <strong style={{ fontSize: '14px', color: 'var(--success)' }}>
                   {filteredCustomers.filter(c => getDueMonths(c, payments).length === 0).length}
                 </strong>
               </div>
-              <div style={{ flex: 1, padding: '10px', background: 'rgba(239, 68, 68, 0.08)', borderRadius: '8px', textAlign: 'center', border: '1px solid rgba(239, 68, 68, 0.15)' }}>
-                <span style={{ display: 'block', fontSize: '9px', textTransform: 'uppercase', color: 'var(--danger)', fontWeight: 700 }}>Unpaid</span>
-                <strong style={{ fontSize: '15px', color: 'var(--danger)' }}>
+              <div style={{ flex: 1, minWidth: '100px', padding: '10px 14px', background: 'rgba(239, 68, 68, 0.08)', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid rgba(239, 68, 68, 0.15)' }}>
+                <span style={{ fontSize: '11px', textTransform: 'uppercase', color: 'var(--danger)', fontWeight: 700 }}>Unpaid</span>
+                <strong style={{ fontSize: '14px', color: 'var(--danger)' }}>
                   {filteredCustomers.filter(c => getDueMonths(c, payments).length > 0).length}
                 </strong>
               </div>

@@ -20,7 +20,7 @@ VALUES (
   'a1111111-1111-1111-1111-111111111111', -- Fixed UUID for Admin
   NULL, -- Super Admin has no business tenant limit
   'admin_rhemi',
-  'pasword123',
+  '0b3542b561be80d01ae9204b532d16e09f22db4a66403fe645b895686c1e9bdd', -- SHA-256 hashed with salt 'kairos_cable_salt_2026'
   'SUPER_ADMIN',
   'Rhemi (Super Admin)',
   '+919999999999',

@@ -248,6 +248,11 @@ export default function App() {
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
+  
+  // Receipt Image & Reminder States
+  const [receiptImageSrc, setReceiptImageSrc] = useState(null);
+  const [activeReceiptPay, setActiveReceiptPay] = useState(null);
+  const [activeReceiptCust, setActiveReceiptCust] = useState(null);
 
   // Form States
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
@@ -512,6 +517,170 @@ export default function App() {
       ? `https://wa.me/${phone}?text=${encodeURIComponent(text)}` 
       : `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
     window.open(waUrl, '_blank');
+  };
+
+  const getLast6MonthsList = () => {
+    const result = [];
+    const currentDate = new Date();
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
+      const mName = MONTHS_ORDER[d.getMonth()];
+      const yName = d.getFullYear();
+      const firstLetter = mName.charAt(0);
+      result.push({
+        period: `${mName} ${yName}`,
+        letter: firstLetter
+      });
+    }
+    return result;
+  };
+
+  const isMonthPaid = (cust, period, allPayments) => {
+    return allPayments.some(p => p.customer_id === cust.id && p.payment_period === period && p.status === 'Paid');
+  };
+
+  const sendDueReminder = (cust, unpaidMonths, mode = 'whatsapp') => {
+    if (!cust) return;
+    let phone = cust.phone_number ? cust.phone_number.replace(/\D/g, '') : '';
+    if (phone && phone.length === 10) {
+      phone = '91' + phone;
+    }
+    const bizName = import.meta.env.VITE_BUSINESS_NAME || currentBusiness?.business_name || 'City Cable Network';
+    const unpaidMonthsStr = unpaidMonths.map(formatPeriodTranslated).join(', ');
+    const totalDue = unpaidMonths.length * 350; // assuming default 350 per month
+    
+    let text = '';
+    if (language === 'ta') {
+      text = `*${bizName}* - கட்டண நிலுவை நினைவூட்டல்\n` +
+             `-------------------\n` +
+             `அன்பார்ந்த வாடிக்கையாளர் ${cust.customer_name},\n` +
+             `பாக்ஸ் ஐடி: ${cust.box_id}\n` +
+             `செலுத்தப்படாத மாதங்கள்: ${unpaidMonthsStr}\n` +
+             `மொத்த நிலுவை தொகை: ₹${totalDue}\n` +
+             `தயவுசெய்து தங்களது நிலுவை தொகையை விரைவில் செலுத்துமாறு கேட்டுக்கொள்கிறோம்.\n\n` +
+             `நன்றி!`;
+    } else {
+      text = `*${bizName}* - Payment Due Reminder\n` +
+             `-------------------\n` +
+             `Dear Customer ${cust.customer_name},\n` +
+             `Box ID: ${cust.box_id}\n` +
+             `Pending Month(s): ${unpaidMonthsStr}\n` +
+             `Total Outstanding: ₹${totalDue}\n` +
+             `Please settle your pending dues at the earliest.\n\n` +
+             `Thank you!`;
+    }
+    
+    if (mode === 'sms') {
+      const localPhone = cust.phone_number ? cust.phone_number.replace(/\D/g, '') : '';
+      const smsUrl = `sms:${localPhone}?body=${encodeURIComponent(text)}`;
+      window.open(smsUrl, '_blank');
+    } else {
+      const waUrl = phone 
+        ? `https://wa.me/${phone}?text=${encodeURIComponent(text)}` 
+        : `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+      window.open(waUrl, '_blank');
+    }
+  };
+
+  const generateReceiptImage = (pay, cust) => {
+    return new Promise((resolve) => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 600;
+      canvas.height = 800;
+      const ctx = canvas.getContext('2d');
+
+      // Set background
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, 600, 800);
+
+      // Frame border
+      ctx.strokeStyle = '#4f46e5'; 
+      ctx.lineWidth = 14;
+      ctx.strokeRect(7, 7, 586, 786);
+
+      // Decorative Header Block
+      ctx.fillStyle = '#4f46e5';
+      ctx.fillRect(14, 14, 572, 120);
+
+      // Title
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'center';
+      const bizName = currentBusiness?.business_name || 'City Cable Network';
+      ctx.font = 'bold 28px sans-serif';
+      ctx.fillText(bizName.toUpperCase(), 300, 65);
+      
+      ctx.font = 'bold 15px sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.85)';
+      ctx.fillText(language === 'ta' ? 'வசூல் கட்டண ரசீது' : 'OFFICIAL PAYMENT RECEIPT', 300, 100);
+
+      // Draw Grid / Rows
+      ctx.textAlign = 'left';
+      let y = 200;
+
+      const drawRow = (label, value) => {
+        ctx.fillStyle = '#64748b'; 
+        ctx.font = '600 17px sans-serif';
+        ctx.fillText(label, 60, y);
+
+        ctx.fillStyle = '#0f172a'; 
+        ctx.font = '500 17px sans-serif';
+        ctx.fillText(value, 240, y);
+        
+        ctx.strokeStyle = '#f1f5f9';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(60, y + 15);
+        ctx.lineTo(540, y + 15);
+        ctx.stroke();
+
+        y += 60;
+      };
+
+      drawRow(language === 'ta' ? 'சந்தாதாரர் பெயர்:' : 'Subscriber:', cust?.customer_name || 'N/A');
+      drawRow(language === 'ta' ? 'பாக்ஸ் ஐடி:' : 'Box ID:', pay.box_id || 'N/A');
+      drawRow(language === 'ta' ? 'வசூல் மாதம்:' : 'Billing Period:', formatPeriodTranslated(pay.payment_period));
+      drawRow(language === 'ta' ? 'வசூல் தேதி:' : 'Payment Date:', pay.payment_date);
+      drawRow(language === 'ta' ? 'ரசீது எண்:' : 'Receipt ID:', pay.id.substring(0, 8).toUpperCase());
+      drawRow(language === 'ta' ? 'வசூலித்தவர்:' : 'Collected By:', currentUser?.name || 'Operator');
+
+      // Amount row
+      y += 10;
+      ctx.fillStyle = '#0f172a';
+      ctx.font = 'bold 20px sans-serif';
+      ctx.fillText(language === 'ta' ? 'செலுத்திய தொகை:' : 'Amount Paid:', 60, y);
+
+      ctx.fillStyle = '#10b981'; 
+      ctx.font = 'bold 32px sans-serif';
+      ctx.fillText(`₹${formatAmount(pay.amount)}`, 280, y + 8);
+
+      // Verified Badge Pill
+      y += 80;
+      ctx.fillStyle = '#ecfdf5';
+      ctx.beginPath();
+      if (ctx.roundRect) {
+        ctx.roundRect(160, y, 280, 50, 25);
+      } else {
+        ctx.rect(160, y, 280, 50);
+      }
+      ctx.fill();
+
+      ctx.fillStyle = '#059669';
+      ctx.font = 'bold 18px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('✓ PAID & VERIFIED', 300, y + 31);
+
+      // Footer
+      y += 100;
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = 'italic 13px sans-serif';
+      ctx.fillText(language === 'ta' ? 'தங்கள் கட்டணத்திற்கு மிக்க நன்றி!' : 'Thank you for your business!', 300, y);
+
+      ctx.font = '900 11px sans-serif';
+      ctx.fillStyle = '#4f46e5';
+      ctx.fillText('POWERED BY KAIROS EDIO TECHNOLOGIES', 300, y + 22);
+
+      resolve(canvas.toDataURL('image/png'));
+    });
   };
 
   const triggerOfflineSync = async (forcedQueue = null) => {
@@ -908,11 +1077,17 @@ export default function App() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <span>{language === 'ta' ? 'வசூல் பதிவு செய்யப்பட்டது.' : 'Payment logged successfully.'}</span>
           <button 
-            onClick={() => shareReceiptWhatsApp(newPay, selectedCustomer)}
+            onClick={async () => {
+              const imgData = await generateReceiptImage(newPay, selectedCustomer);
+              setReceiptImageSrc(imgData);
+              setActiveReceiptPay(newPay);
+              setActiveReceiptCust(selectedCustomer);
+              setModalType('receipt_modal');
+            }}
             className="btn btn-primary"
-            style={{ padding: '6px 12px', fontSize: '11px', background: '#25D366', border: 'none', color: '#ffffff', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}
+            style={{ padding: '6px 12px', fontSize: '11px', background: 'var(--primary-500)', border: 'none', color: '#ffffff', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}
           >
-            <Share2 size={12} /> WhatsApp
+            <Receipt size={12} /> {language === 'ta' ? 'ரசீது' : 'Receipt'}
           </button>
         </div>
       );
@@ -1185,34 +1360,25 @@ export default function App() {
         'Assigned Worker': worker ? worker.name : 'Unassigned',
         'Status': c.connection_status,
         'Notes': c.notes || '',
-        'Created Date': c.created_at.split('T')[0]
+        'Created Date': c.created_at ? c.created_at.split('T')[0] : ''
       };
     });
 
+    if (dataToExport.length === 0) {
+      showError(language === 'ta' ? 'வாடிக்கையாளர்கள் பட்டியல் காலியாக உள்ளது.' : 'No customers matching current filters to export.');
+      return;
+    }
+
     const filename = `${currentUser.username}_customers.xlsx`;
-    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Customers');
-
-    const wopts = { bookType: 'xlsx', bookSST: false, type: 'array' };
-    const wbout = XLSX.write(workbook, wopts);
-    const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    const file = new File([blob], filename, { type: blob.type });
-
-    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-      navigator.share({
-        files: [file],
-        title: 'Customer Export',
-        text: 'Exported customer records'
-      })
-      .then(() => showSuccess('Shared successfully.'))
-      .catch((err) => {
-        console.error('Sharing failed', err);
-        XLSX.writeFile(workbook, filename);
-      });
-    } else {
+    try {
+      const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Customers');
       XLSX.writeFile(workbook, filename);
       showSuccess('Customer database exported to Excel.');
+    } catch (err) {
+      console.error('Customer export error:', err);
+      showError('Export failed: ' + err.message);
     }
   };
 
@@ -1247,34 +1413,27 @@ export default function App() {
       };
     });
 
+    if (dataToExport.length === 0) {
+      showError(language === 'ta' ? 'இந்த காலத்திற்கு எந்த வசூல் பதிவும் இல்லை.' : 'No payment records found for the selected period.');
+      return;
+    }
+
     const label = targetWorkerId 
       ? `Worker_${profiles.find(pr => pr.id === targetWorkerId)?.username}`
       : (currentUser.role === 'WORKER' ? `My` : `Business`);
 
-    const filename = `${label}_collections_${selectedMonth.replace(/\s+/g, '_')}.xlsx`;
-    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Collections');
+    const monthStr = selectedMonth ? String(selectedMonth) : 'All_Time';
+    const filename = `${label}_collections_${monthStr.replace(/\s+/g, '_')}.xlsx`;
 
-    const wopts = { bookType: 'xlsx', bookSST: false, type: 'array' };
-    const wbout = XLSX.write(workbook, wopts);
-    const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    const file = new File([blob], filename, { type: blob.type });
-
-    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-      navigator.share({
-        files: [file],
-        title: 'Monthly Collections Export',
-        text: `Exported collections report for ${selectedMonth}`
-      })
-      .then(() => showSuccess('Shared successfully.'))
-      .catch((err) => {
-        console.error('Sharing failed', err);
-        XLSX.writeFile(workbook, filename);
-      });
-    } else {
+    try {
+      const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Collections');
       XLSX.writeFile(workbook, filename);
       showSuccess('Collections sheet exported successfully.');
+    } catch (err) {
+      console.error('Report export error:', err);
+      showError('Export failed: ' + err.message);
     }
   };
 
@@ -2513,7 +2672,14 @@ public class MainActivity extends BridgeActivity {
                     const todayColl = payments.filter(p => p.worker_id === w.id && p.status === 'Paid' && p.payment_date === new Date().toISOString().split('T')[0]).reduce((sum, p) => sum + parseFloat(p.amount), 0);
                     const totalColl = payments.filter(p => p.worker_id === w.id && p.status === 'Paid').reduce((sum, p) => sum + parseFloat(p.amount), 0);
                     return (
-                      <div key={w.id} style={{ marginBottom: '14px', borderBottom: '1px solid var(--neutral-100)', paddingBottom: '10px' }}>
+                      <div 
+                        key={w.id} 
+                        style={{ marginBottom: '14px', borderBottom: '1px solid var(--neutral-100)', paddingBottom: '10px', cursor: 'pointer' }}
+                        onClick={() => {
+                          setSelectedWorker(w);
+                          setModalType('inspect_worker');
+                        }}
+                      >
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                           <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--neutral-800)' }}>{w.name}</span>
                           <span style={{ fontSize: '11px', color: 'var(--neutral-400)', fontWeight: 600 }}>Collector</span>
@@ -2569,16 +2735,40 @@ public class MainActivity extends BridgeActivity {
                     <div 
                       key={pay.id} 
                       className="list-item"
-                      style={{ cursor: 'pointer' }}
-                      onClick={() => handleOpenEditPayment(pay)}
+                      style={{ padding: '16px 20px' }}
                     >
-                      <div className="list-item-main">
-                        <span className="list-item-title">{cust ? cust.customer_name : 'Customer'}</span>
-                        <span className="list-item-subtitle">{formatPeriodTranslated(pay.payment_period)} • {t('boxId')}: {pay.box_id}</span>
+                      <div className="list-item-main" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', cursor: 'pointer', flex: 1 }} onClick={() => handleOpenEditPayment(pay)}>
+                        <span className="list-item-title" style={{ display: 'block' }}>{cust ? cust.customer_name : 'Customer'}</span>
+                        <span className="list-item-subtitle" style={{ display: 'block', marginTop: '2px', fontWeight: 600 }}>{formatPeriodTranslated(pay.payment_period)}</span>
+                        <span className="list-item-subtitle" style={{ display: 'block', color: 'var(--neutral-400)', marginTop: '2px', fontSize: '11px' }}>
+                          {cust?.street_name ? `📍 ${cust.street_name} • ` : ''}{t('boxId')}: {pay.box_id}
+                        </span>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                         <strong style={{ color: 'var(--success)', fontSize: '15px' }}>₹{formatAmount(pay.amount)}</strong>
-                        <Edit2 size={12} style={{ color: 'var(--neutral-400)' }} />
+                        <button
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            const imgData = await generateReceiptImage(pay, cust);
+                            setReceiptImageSrc(imgData);
+                            setActiveReceiptPay(pay);
+                            setActiveReceiptCust(cust);
+                            setModalType('receipt_modal');
+                          }}
+                          style={{ background: 'none', border: 'none', color: 'var(--primary-500)', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '6px' }}
+                          title="Generate Receipt"
+                        >
+                          <Receipt size={16} />
+                        </button>
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenEditPayment(pay);
+                          }}
+                          style={{ background: 'none', border: 'none', color: 'var(--neutral-400)', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '6px' }}
+                        >
+                          <Edit2 size={14} />
+                        </button>
                       </div>
                     </div>
                   );
@@ -2717,6 +2907,35 @@ public class MainActivity extends BridgeActivity {
                                   ) : (
                                     <span className="badge badge-pending" style={{ fontSize: '10px', marginTop: '6px', padding: '3px 8px' }}>{t('due')}: {unpaid.map(formatPeriodTranslated).join(', ')}</span>
                                   )}
+
+                                  {/* 6-Month Summary indicators */}
+                                  <div style={{ display: 'flex', gap: '5px', marginTop: '8px', alignItems: 'center' }} onClick={(e) => e.stopPropagation()}>
+                                    <span style={{ fontSize: '10px', color: 'var(--neutral-400)', fontWeight: 700, marginRight: '2px' }}>6M:</span>
+                                    {getLast6MonthsList().map(m => {
+                                      const paid = isMonthPaid(cust, m.period, payments);
+                                      return (
+                                        <div 
+                                          key={m.period}
+                                          style={{
+                                            width: '18px',
+                                            height: '18px',
+                                            borderRadius: '50%',
+                                            background: paid ? 'var(--success)' : 'var(--neutral-200)',
+                                            color: paid ? '#ffffff' : 'var(--neutral-500)',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            fontSize: '8px',
+                                            fontWeight: 'bold',
+                                            border: paid ? 'none' : '1px solid var(--neutral-300)'
+                                          }}
+                                          title={`${m.period}: ${paid ? 'Paid' : 'Unpaid'}`}
+                                        >
+                                          {paid ? '✓' : m.letter}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
                                 </div>
                                 <span className={`badge ${cust.connection_status === 'ACTIVE' ? 'badge-active' : 'badge-inactive'}`} style={{ fontSize: '11px' }}>
                                   {cust.connection_status === 'ACTIVE' ? t('active') : t('inactive')}
@@ -2751,6 +2970,35 @@ public class MainActivity extends BridgeActivity {
                         ) : (
                           <span className="badge badge-pending" style={{ fontSize: '10px', marginTop: '6px', padding: '3px 8px' }}>{t('due')}: {unpaid.map(formatPeriodTranslated).join(', ')}</span>
                         )}
+
+                        {/* 6-Month Summary indicators */}
+                        <div style={{ display: 'flex', gap: '5px', marginTop: '8px', alignItems: 'center' }} onClick={(e) => e.stopPropagation()}>
+                          <span style={{ fontSize: '10px', color: 'var(--neutral-400)', fontWeight: 700, marginRight: '2px' }}>6M:</span>
+                          {getLast6MonthsList().map(m => {
+                            const paid = isMonthPaid(cust, m.period, payments);
+                            return (
+                              <div 
+                                key={m.period}
+                                style={{
+                                  width: '18px',
+                                  height: '18px',
+                                  borderRadius: '50%',
+                                  background: paid ? 'var(--success)' : 'var(--neutral-200)',
+                                  color: paid ? '#ffffff' : 'var(--neutral-500)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  fontSize: '8px',
+                                  fontWeight: 'bold',
+                                  border: paid ? 'none' : '1px solid var(--neutral-300)'
+                                }}
+                                title={`${m.period}: ${paid ? 'Paid' : 'Unpaid'}`}
+                              >
+                                {paid ? '✓' : m.letter}
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
                         <span className={`badge ${cust.connection_status === 'ACTIVE' ? 'badge-active' : 'badge-inactive'}`}>
@@ -2790,14 +3038,18 @@ public class MainActivity extends BridgeActivity {
                     </div>
                     <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: '12px' }}>
                       <button
-                        onClick={(e) => {
+                        onClick={async (e) => {
                           e.stopPropagation();
-                          shareReceiptWhatsApp(pay, cust);
+                          const imgData = await generateReceiptImage(pay, cust);
+                          setReceiptImageSrc(imgData);
+                          setActiveReceiptPay(pay);
+                          setActiveReceiptCust(cust);
+                          setModalType('receipt_modal');
                         }}
-                        style={{ background: 'none', border: 'none', color: '#25D366', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '6px' }}
-                        title="Share on WhatsApp"
+                        style={{ background: 'none', border: 'none', color: 'var(--primary-500)', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '6px' }}
+                        title="Generate Receipt"
                       >
-                        <Share2 size={16} />
+                        <Receipt size={16} />
                       </button>
                       <div onClick={() => handleOpenEditPayment(pay)} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <div>
@@ -3165,13 +3417,65 @@ public class MainActivity extends BridgeActivity {
                   </strong>
                 </div>
               )}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px' }}>
-                <AlertCircle size={16} style={{ color: 'var(--warning)' }} />
-                <span style={{ color: 'var(--neutral-500)' }}>{t('unpaidMonths')}:</span>
-                <strong style={{ marginLeft: 'auto', color: 'var(--warning)', fontSize: '11px', textAlign: 'right', maxWidth: '60%' }}>
-                  {getDueMonths(selectedCustomer, payments).map(formatPeriodTranslated).join(', ') || t('noneFullyPaid')}
-                </strong>
-              </div>
+              {(() => {
+                const unpaid = getDueMonths(selectedCustomer, payments);
+                const hasDues = unpaid.length > 0;
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', borderTop: '1px solid var(--neutral-200)', paddingTop: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px' }}>
+                      <AlertCircle size={16} style={{ color: hasDues ? 'var(--danger)' : 'var(--success)' }} />
+                      <span style={{ color: 'var(--neutral-500)' }}>{t('unpaidMonths')}:</span>
+                      <strong style={{ marginLeft: 'auto', color: hasDues ? 'var(--danger)' : 'var(--success)', fontSize: '11px', textAlign: 'right', maxWidth: '60%' }}>
+                        {unpaid.map(formatPeriodTranslated).join(', ') || t('noneFullyPaid')}
+                      </strong>
+                    </div>
+                    {hasDues && (
+                      <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                        <button
+                          onClick={() => sendDueReminder(selectedCustomer, unpaid, 'whatsapp')}
+                          className="btn btn-secondary"
+                          style={{ 
+                            flex: 1,
+                            padding: '8px 12px', 
+                            fontSize: '11px', 
+                            color: '#25D366', 
+                            borderColor: '#25D366', 
+                            background: 'rgba(37, 211, 102, 0.05)', 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center',
+                            gap: '4px', 
+                            fontWeight: 700
+                          }}
+                        >
+                          <Share2 size={13} />
+                          {language === 'ta' ? 'வாட்ஸ்அப்' : 'WhatsApp'}
+                        </button>
+                        <button
+                          onClick={() => sendDueReminder(selectedCustomer, unpaid, 'sms')}
+                          className="btn btn-secondary"
+                          style={{ 
+                            flex: 1,
+                            padding: '8px 12px', 
+                            fontSize: '11px', 
+                            color: 'var(--primary-600)', 
+                            borderColor: 'var(--primary-300)', 
+                            background: 'var(--primary-50)', 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center',
+                            gap: '4px', 
+                            fontWeight: 700
+                          }}
+                        >
+                          <Smartphone size={13} />
+                          {language === 'ta' ? 'சாதாரண SMS' : 'SMS Text'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
               {selectedCustomer.notes && (
                 <div style={{ background: '#ffffff', border: '1px solid var(--neutral-200)', padding: '10px 14px', borderRadius: 'var(--radius-sm)', marginTop: '4px', fontSize: '12.5px', color: 'var(--neutral-600)', fontStyle: 'italic' }}>
                   <strong>{t('notes')}:</strong> {selectedCustomer.notes}
@@ -3260,14 +3564,18 @@ public class MainActivity extends BridgeActivity {
                   </span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <button
-                      onClick={(e) => {
+                      onClick={async (e) => {
                         e.stopPropagation();
-                        shareReceiptWhatsApp(p, selectedCustomer);
+                        const imgData = await generateReceiptImage(p, selectedCustomer);
+                        setReceiptImageSrc(imgData);
+                        setActiveReceiptPay(p);
+                        setActiveReceiptCust(selectedCustomer);
+                        setModalType('receipt_modal');
                       }}
-                      style={{ background: 'none', border: 'none', color: '#25D366', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '4px' }}
-                      title="Share on WhatsApp"
+                      style={{ background: 'none', border: 'none', color: 'var(--primary-500)', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '4px' }}
+                      title="Generate Receipt"
                     >
-                      <Share2 size={13} />
+                      <Receipt size={13} />
                     </button>
                     <div onClick={() => handleOpenEditPayment(p)} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <strong style={{ color: p.status === 'Paid' ? 'var(--success)' : 'var(--warning)' }}>
@@ -3590,6 +3898,79 @@ public class MainActivity extends BridgeActivity {
             })()}
 
             <button type="button" onClick={() => setModalType('reports')} className="btn btn-secondary" style={{ width: '100%', marginTop: '24px' }}>{t('closeInspector')}</button>
+          </div>
+        </div>
+      )}
+
+      {/* Receipt Image Preview Modal */}
+      {modalType === 'receipt_modal' && activeReceiptPay && (
+        <div className="modal-overlay" onClick={() => {
+          if (selectedCustomer) {
+            setModalType('customer_details');
+          } else {
+            setModalType(null);
+          }
+        }}>
+          <div className="mobile-sheet" onClick={(e) => e.stopPropagation()} style={{ maxHeight: '90vh', overflowY: 'auto', borderRadius: 'var(--radius-lg)' }}>
+            <div className="sheet-handle"></div>
+            <h3 style={{ fontSize: '16px', fontWeight: 800, marginBottom: '16px', textAlign: 'center' }}>
+              {language === 'ta' ? 'வசூல் ரசீது (படம்)' : 'Payment Receipt (Image)'}
+            </h3>
+            
+            {receiptImageSrc ? (
+              <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+                <img 
+                  src={receiptImageSrc} 
+                  alt="Receipt" 
+                  style={{ 
+                    width: '100%', 
+                    maxWidth: '300px', 
+                    borderRadius: 'var(--radius-md)', 
+                    border: '1px solid var(--neutral-200)', 
+                    boxShadow: 'var(--shadow-md)' 
+                  }} 
+                />
+              </div>
+            ) : (
+              <div style={{ padding: '40px', textAlign: 'center' }}>
+                <div className="spinner" style={{ margin: '0 auto', borderTopColor: 'var(--primary-500)' }}></div>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {receiptImageSrc && (
+                <a 
+                  href={receiptImageSrc} 
+                  download={`Receipt_${activeReceiptPay.box_id || 'box'}_${activeReceiptPay.payment_period.replace(/\s+/g, '_')}.png`}
+                  className="btn btn-primary"
+                  style={{ width: '100%', textDecoration: 'none' }}
+                >
+                  <Download size={16} /> {language === 'ta' ? 'படம் பதிவிறக்கு' : 'Download Receipt Image'}
+                </a>
+              )}
+              
+              <button 
+                onClick={() => shareReceiptWhatsApp(activeReceiptPay, activeReceiptCust)}
+                className="btn btn-secondary"
+                style={{ width: '100%', borderColor: '#25D366', color: '#25D366', fontWeight: 700 }}
+              >
+                <Share2 size={16} /> {language === 'ta' ? 'வாட்ஸ்அப்பில் பகிர்க (Text)' : 'Share Receipt (WhatsApp)'}
+              </button>
+
+              <button 
+                onClick={() => {
+                  if (selectedCustomer) {
+                    setModalType('customer_details');
+                  } else {
+                    setModalType(null);
+                  }
+                }}
+                className="btn btn-secondary"
+                style={{ width: '100%' }}
+              >
+                {t('close')}
+              </button>
+            </div>
           </div>
         </div>
       )}

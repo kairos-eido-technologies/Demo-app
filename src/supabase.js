@@ -28,6 +28,30 @@ export const generateUUID = () => {
   });
 };
 
+// Helper: Hash password client-side using SHA-256 for secure database stashing
+export const hashPassword = async (password, salt = 'kairos_cable_salt_2026') => {
+  if (!password) return '';
+  if (/^[a-f0-9]{64}$/i.test(password)) return password;
+  
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password + salt);
+  
+  // Try using crypto subtle (standard in modern browsers/environments)
+  if (typeof window !== 'undefined' && window.crypto && window.crypto.subtle) {
+    const hashBuffer = await window.crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+  
+  // Clean, warning-free JS hashing fallback
+  let hash = 5381;
+  for (let i = 0; i < password.length; i++) {
+    hash = ((hash << 5) + hash) + password.charCodeAt(i);
+  }
+  const hashStr = Math.abs(hash).toString(16).padStart(16, 'f');
+  return (hashStr + hashStr + hashStr + hashStr).substring(0, 64);
+};
+
 // -------------------------------------------------------------
 // LOCAL STORAGE MOCK DATABASE SETUP
 // -------------------------------------------------------------
@@ -101,6 +125,7 @@ export const dbService = {
   // --- 1. AUTHENTICATION SERVICES ---
   auth: {
     signIn: async (username, password) => {
+      const hashedPassword = await hashPassword(password);
       if (isMock) {
         const profiles = mockDB.getProfiles();
         const lookup = username.trim().toLowerCase().split('@')[0];
@@ -113,8 +138,25 @@ export const dbService = {
         if (found.disabled) {
           throw new Error('This user account has been disabled/blocked by Kairos Edio Technologies.');
         }
-        if (password !== 'pasword123' && password !== 'password123' && password !== 'admin') {
+        
+        const adminHash = await hashPassword('admin');
+        const pass123Hash = await hashPassword('password123');
+        const pas123Hash = await hashPassword('pasword123');
+        
+        const match = found.password === hashedPassword || 
+                      (found.password === 'admin' && hashedPassword === adminHash) ||
+                      (found.password === 'password123' && hashedPassword === pass123Hash) ||
+                      (found.password === 'pasword123' && hashedPassword === pas123Hash) ||
+                      (!found.password && (password === 'admin' || password === 'password123' || password === 'pasword123')); // fallback if empty
+                      
+        if (!match) {
           throw new Error('Incorrect password.');
+        }
+
+        // Auto-migrate to hashed password in mock db if not already hashed
+        if (!/^[a-f0-9]{64}$/i.test(found.password || '')) {
+          found.password = hashedPassword;
+          mockDB.setProfiles(profiles);
         }
 
         // Mock login success
@@ -126,7 +168,7 @@ export const dbService = {
           .from('profiles')
           .select('*')
           .eq('username', cleanUsername)
-          .eq('password', password)
+          .eq('password', hashedPassword)
           .maybeSingle();
 
         if (error) throw new Error('Database query error: ' + error.message);
@@ -261,6 +303,7 @@ export const dbService = {
 
     create: async (username, name, role, phone, password, businessId, adminUserId) => {
       const cleanUsername = username.trim().toLowerCase();
+      const hashedPassword = await hashPassword(password);
       if (isMock) {
         const profiles = mockDB.getProfiles();
         if (profiles.some(p => p.username === cleanUsername)) {
@@ -274,7 +317,7 @@ export const dbService = {
           role,
           name,
           phone_number: phone,
-          password,
+          password: hashedPassword,
           disabled: false,
           created_at: new Date().toISOString()
         };
@@ -290,7 +333,7 @@ export const dbService = {
           role,
           name,
           phone_number: phone || null,
-          password: password,
+          password: hashedPassword,
           disabled: false
         };
 

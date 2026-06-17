@@ -280,9 +280,9 @@ export default function App() {
   const [businessForm, setBusinessForm] = useState({ name: '' });
   const [userForm, setUserForm] = useState({ username: '', name: '', role: 'WORKER', phone: '', password: '', businessId: '' });
   const [customerForm, setCustomerForm] = useState({ customer_name: '', street_name: '', box_id: '', phone_number: '', assigned_worker_id: '', connection_status: 'ACTIVE', notes: '' });
-  const [bulkPaymentForm, setBulkPaymentForm] = useState({ periods: [], amount: '', notes: '' });
-  const [singlePaymentForm, setSinglePaymentForm] = useState({ amount: '', period: '', notes: '' });
-  const [paymentForm, setPaymentForm] = useState({ amount: '', period: '', date: '', notes: '' });
+  const [bulkPaymentForm, setBulkPaymentForm] = useState({ periods: [], amount: '', notes: '', worker_id: '' });
+  const [singlePaymentForm, setSinglePaymentForm] = useState({ amount: '', period: '', notes: '', worker_id: '' });
+  const [paymentForm, setPaymentForm] = useState({ amount: '', period: '', date: '', notes: '', worker_id: '' });
   const [bulkPaymentRange, setBulkPaymentRange] = useState({
     fromMonth: '5', // June (0-indexed)
     fromYear: '2026',
@@ -552,7 +552,8 @@ export default function App() {
       amount: pay.amount.toString(),
       period: pay.payment_period,
       date: pay.payment_date,
-      notes: pay.notes || ''
+      notes: pay.notes || '',
+      worker_id: pay.worker_id || ''
     });
     setModalType('edit_payment');
   };
@@ -569,7 +570,8 @@ export default function App() {
         amount: parseFloat(paymentForm.amount),
         payment_period: paymentForm.period,
         payment_date: paymentForm.date,
-        notes: paymentForm.notes
+        notes: paymentForm.notes,
+        worker_id: currentUser.role === 'WORKER' ? currentUser.id : (paymentForm.worker_id || null)
       };
 
       const updated = await dbService.payments.update(selectedPayment.id, data, currentUser.id);
@@ -1230,7 +1232,7 @@ export default function App() {
       business_id: currentUser.business_id,
       customer_id: selectedCustomer.id,
       box_id: selectedCustomer.box_id,
-      worker_id: currentUser.role === 'WORKER' ? currentUser.id : null,
+      worker_id: currentUser.role === 'WORKER' ? currentUser.id : (singlePaymentForm.worker_id || null),
       amount: parseFloat(singlePaymentForm.amount),
       payment_date: new Date().toISOString().split('T')[0],
       payment_period: singlePaymentForm.period,
@@ -1256,7 +1258,7 @@ export default function App() {
       localStorage.setItem('kairos_offline_queue', JSON.stringify(updatedQueue));
       
       setPayments([localPay, ...payments]);
-      setSinglePaymentForm({ amount: '', period: '', notes: '' });
+      setSinglePaymentForm({ amount: '', period: '', notes: '', worker_id: '' });
       setModalType(null);
       showSuccess(language === 'ta' ? 'இணையம் இல்லை. ஆஃப்லைனில் சேமிக்கப்பட்டது, பின்னர் ஒத்திசைக்கப்படும்.' : 'Saved offline. Payment will auto-sync when network is available.');
       return;
@@ -1265,7 +1267,7 @@ export default function App() {
     try {
       const newPay = await dbService.payments.create(data, currentUser.id);
       setPayments([newPay, ...payments]);
-      setSinglePaymentForm({ amount: '', period: '', notes: '' });
+      setSinglePaymentForm({ amount: '', period: '', notes: '', worker_id: '' });
       setModalType(null);
       
       showSuccess(
@@ -1322,7 +1324,7 @@ export default function App() {
     }
 
     const perPeriodAmount = (parseFloat(bulkPaymentForm.amount) / bulkPaymentForm.periods.length).toFixed(2);
-    const collectorId = currentUser.role === 'WORKER' ? currentUser.id : null;
+    const collectorId = currentUser.role === 'WORKER' ? currentUser.id : (bulkPaymentForm.worker_id || null);
     const dateStr = new Date().toISOString().split('T')[0];
 
     const paymentsToCreate = bulkPaymentForm.periods.map(period => ({
@@ -1359,19 +1361,18 @@ export default function App() {
       setOfflineQueue(updatedQueue);
       localStorage.setItem('kairos_offline_queue', JSON.stringify(updatedQueue));
       setPayments([...localPayments, ...payments]);
-      setBulkPaymentForm({ periods: [], amount: '', notes: '' });
+      setBulkPaymentForm({ periods: [], amount: '', notes: '', worker_id: '' });
       setModalType(null);
       showSuccess(language === 'ta' ? 'இணையம் இல்லை. ஆஃப்லைனில் மொத்த வசூலும் சேமிக்கப்பட்டது.' : 'Device offline. Bulk payments saved offline.');
       return;
     }
 
     try {
-      const collectorIdVal = currentUser.role === 'WORKER' ? currentUser.id : null;
       const results = await dbService.payments.createBulk(
         selectedCustomer.id,
         bulkPaymentForm.periods,
         parseFloat(bulkPaymentForm.amount),
-        collectorIdVal,
+        collectorId,
         currentUser.business_id,
         bulkPaymentForm.notes,
         selectedCustomer.box_id,
@@ -1379,7 +1380,7 @@ export default function App() {
       );
 
       setPayments([...(results || []), ...payments]);
-      setBulkPaymentForm({ periods: [], amount: '', notes: '' });
+      setBulkPaymentForm({ periods: [], amount: '', notes: '', worker_id: '' });
       setModalType(null);
       showSuccess(language === 'ta' ? 'மொத்த வசூலும் பதிவு செய்யப்பட்டது.' : 'Bulk payments recorded successfully.');
       loadData();
@@ -1406,7 +1407,7 @@ export default function App() {
         setOfflineQueue(updatedQueue);
         localStorage.setItem('kairos_offline_queue', JSON.stringify(updatedQueue));
         setPayments([...localPayments, ...payments]);
-        setBulkPaymentForm({ periods: [], amount: '', notes: '' });
+        setBulkPaymentForm({ periods: [], amount: '', notes: '', worker_id: '' });
         setModalType(null);
         showSuccess(language === 'ta' ? 'இணைய கோளாறு. ஆஃப்லைனில் மொத்த வசூலும் சேமிக்கப்பட்டது.' : 'Connection failed. Bulk payments saved offline.');
       } else {
@@ -2072,6 +2073,10 @@ public class MainActivity extends BridgeActivity {
 
   const totalUnpaidCustomersCount = useMemo(() => {
     return customers.filter(c => c.connection_status === 'ACTIVE' && getDueMonths(c, payments).length > 0).length;
+  }, [customers, payments]);
+
+  const totalPaidCustomersCount = useMemo(() => {
+    return customers.filter(c => c.connection_status === 'ACTIVE' && getDueMonths(c, payments).length === 0).length;
   }, [customers, payments]);
 
   // Get specific worker performance metrics
@@ -3137,17 +3142,19 @@ public class MainActivity extends BridgeActivity {
                   </div>
                 </div>
 
-                <div className="card" style={{ padding: '16px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div className="card" style={{ padding: '16px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
                   <div>
                     <span className="card-title" style={{ fontSize: '10px', display: 'block' }}>{t('subscribers')}</span>
                     <strong style={{ fontSize: '20px', color: 'var(--neutral-900)' }}>{stats?.totalCusts}</strong>
                   </div>
-                  {currentUser.role === 'OWNER' && (
-                    <div style={{ textAlign: 'center' }}>
-                      <span className="card-title" style={{ fontSize: '10px', display: 'block', color: 'var(--danger)' }}>Total Unpaid Customers</span>
-                      <strong style={{ fontSize: '20px', color: 'var(--danger)' }}>{totalUnpaidCustomersCount}</strong>
-                    </div>
-                  )}
+                  <div style={{ textAlign: 'center' }}>
+                    <span className="card-title" style={{ fontSize: '10px', display: 'block', color: 'var(--success)' }}>Paid Customers</span>
+                    <strong style={{ fontSize: '20px', color: 'var(--success)' }}>{totalPaidCustomersCount}</strong>
+                  </div>
+                  <div style={{ textAlign: 'center' }}>
+                    <span className="card-title" style={{ fontSize: '10px', display: 'block', color: 'var(--danger)' }}>Unpaid Customers</span>
+                    <strong style={{ fontSize: '20px', color: 'var(--danger)' }}>{totalUnpaidCustomersCount}</strong>
+                  </div>
                   <div style={{ textAlign: 'right' }}>
                     <span className="card-title" style={{ fontSize: '10px', display: 'block' }}>{t('activeNodes')}</span>
                     <strong style={{ fontSize: '20px', color: 'var(--accent-500)' }}>{stats?.activeCusts}</strong>
@@ -3331,6 +3338,25 @@ public class MainActivity extends BridgeActivity {
                 </button>
               </div>
             )}
+
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+              <div style={{ flex: 1, padding: '10px', background: 'var(--neutral-100)', borderRadius: '8px', textAlign: 'center', border: '1px solid var(--neutral-200)' }}>
+                <span style={{ display: 'block', fontSize: '9px', textTransform: 'uppercase', color: 'var(--neutral-500)', fontWeight: 700 }}>Total Accounts</span>
+                <strong style={{ fontSize: '15px', color: 'var(--neutral-800)' }}>{filteredCustomers.length}</strong>
+              </div>
+              <div style={{ flex: 1, padding: '10px', background: 'rgba(16, 185, 129, 0.08)', borderRadius: '8px', textAlign: 'center', border: '1px solid rgba(16, 185, 129, 0.15)' }}>
+                <span style={{ display: 'block', fontSize: '9px', textTransform: 'uppercase', color: 'var(--success)', fontWeight: 700 }}>Paid</span>
+                <strong style={{ fontSize: '15px', color: 'var(--success)' }}>
+                  {filteredCustomers.filter(c => getDueMonths(c, payments).length === 0).length}
+                </strong>
+              </div>
+              <div style={{ flex: 1, padding: '10px', background: 'rgba(239, 68, 68, 0.08)', borderRadius: '8px', textAlign: 'center', border: '1px solid rgba(239, 68, 68, 0.15)' }}>
+                <span style={{ display: 'block', fontSize: '9px', textTransform: 'uppercase', color: 'var(--danger)', fontWeight: 700 }}>Unpaid</span>
+                <strong style={{ fontSize: '15px', color: 'var(--danger)' }}>
+                  {filteredCustomers.filter(c => getDueMonths(c, payments).length > 0).length}
+                </strong>
+              </div>
+            </div>
 
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontSize: '12px', color: 'var(--neutral-400)', fontWeight: 600 }}>
@@ -4434,6 +4460,21 @@ public class MainActivity extends BridgeActivity {
                   onChange={(e) => setSinglePaymentForm({ ...singlePaymentForm, notes: e.target.value })}
                 />
               </div>
+              {currentUser.role === 'OWNER' && (
+                <div className="form-group">
+                  <label className="form-label">Collector Worker</label>
+                  <select
+                    className="form-input form-select"
+                    value={singlePaymentForm.worker_id}
+                    onChange={(e) => setSinglePaymentForm({ ...singlePaymentForm, worker_id: e.target.value })}
+                  >
+                    <option value="">Direct / Admin</option>
+                    {profiles.filter(p => p.role === 'WORKER').map(w => (
+                      <option key={w.id} value={w.id}>{w.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
                 <button type="button" onClick={() => setModalType('customer_details')} className="btn btn-secondary" style={{ flex: 1 }}>Back</button>
                 <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>Post Payment</button>
@@ -4555,6 +4596,21 @@ public class MainActivity extends BridgeActivity {
                   onChange={(e) => setBulkPaymentForm({ ...bulkPaymentForm, notes: e.target.value })}
                 />
               </div>
+              {currentUser.role === 'OWNER' && (
+                <div className="form-group">
+                  <label className="form-label">Collector Worker</label>
+                  <select
+                    className="form-input form-select"
+                    value={bulkPaymentForm.worker_id}
+                    onChange={(e) => setBulkPaymentForm({ ...bulkPaymentForm, worker_id: e.target.value })}
+                  >
+                    <option value="">Direct / Admin</option>
+                    {profiles.filter(p => p.role === 'WORKER').map(w => (
+                      <option key={w.id} value={w.id}>{w.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
                 <button type="button" onClick={() => setModalType('customer_details')} className="btn btn-secondary" style={{ flex: 1 }}>{t('back')}</button>
                 <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>{t('logBulkPayments')}</button>
@@ -4633,6 +4689,21 @@ public class MainActivity extends BridgeActivity {
                   onChange={(e) => setPaymentForm({ ...paymentForm, notes: e.target.value })}
                 />
               </div>
+              {currentUser.role === 'OWNER' && (
+                <div className="form-group">
+                  <label className="form-label">Collector Worker</label>
+                  <select
+                    className="form-input form-select"
+                    value={paymentForm.worker_id}
+                    onChange={(e) => setPaymentForm({ ...paymentForm, worker_id: e.target.value })}
+                  >
+                    <option value="">Direct / Admin</option>
+                    {profiles.filter(p => p.role === 'WORKER').map(w => (
+                      <option key={w.id} value={w.id}>{w.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
                 <button 
                   type="button" 

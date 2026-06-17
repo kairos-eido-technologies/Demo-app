@@ -139,14 +139,8 @@ export const dbService = {
           throw new Error('This user account has been disabled/blocked by Kairos Edio Technologies.');
         }
         
-        const adminHash = await hashPassword('admin');
-        const pass123Hash = await hashPassword('password123');
-        const pas123Hash = await hashPassword('pasword123');
-        
         const match = found.password === hashedPassword || 
-                      (found.password === 'admin' && hashedPassword === adminHash) ||
-                      (found.password === 'password123' && hashedPassword === pass123Hash) ||
-                      (found.password === 'pasword123' && hashedPassword === pas123Hash) ||
+                      found.password === password ||
                       (!found.password && (password === 'admin' || password === 'password123' || password === 'pasword123')); // fallback if empty
                       
         if (!match) {
@@ -168,15 +162,36 @@ export const dbService = {
           .from('profiles')
           .select('*')
           .eq('username', cleanUsername)
-          .eq('password', hashedPassword)
           .maybeSingle();
 
         if (error) throw new Error('Database query error: ' + error.message);
         if (!profile) {
           throw new Error('Invalid username or password.');
         }
+
+        // Check if the password matches the hash or the plaintext
+        const isHashedMatch = profile.password === hashedPassword;
+        const isPlaintextMatch = profile.password === password;
+
+        if (!isHashedMatch && !isPlaintextMatch) {
+          throw new Error('Invalid username or password.');
+        }
+
         if (profile.disabled) {
           throw new Error('This account has been blocked. Contact Kairos Edio Technologies.');
+        }
+
+        // Auto-migrate plaintext password to hashed format in the database
+        if (isPlaintextMatch && !isHashedMatch) {
+          try {
+            await realSupabase
+              .from('profiles')
+              .update({ password: hashedPassword })
+              .eq('id', profile.id);
+            profile.password = hashedPassword;
+          } catch (migrateErr) {
+            console.error('Failed to auto-migrate user password:', migrateErr);
+          }
         }
 
         // Store session in local storage for database-level auth persistence

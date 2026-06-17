@@ -304,6 +304,8 @@ export default function App() {
 
   // Filter States
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchQueryBusinesses, setSearchQueryBusinesses] = useState('');
+  const [searchQueryUsers, setSearchQueryUsers] = useState('');
   const [filterWorker, setFilterWorker] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [filterStreet, setFilterStreet] = useState('');
@@ -1781,6 +1783,29 @@ public class MainActivity extends BridgeActivity {
     return result;
   }, [auditLogs, filterLogBusiness]);
 
+  const filteredBusinesses = useMemo(() => {
+    if (!searchQueryBusinesses) return businesses;
+    const q = searchQueryBusinesses.toLowerCase().trim();
+    return businesses.filter(biz => 
+      biz.business_name.toLowerCase().includes(q) || 
+      biz.id.toLowerCase().includes(q)
+    );
+  }, [businesses, searchQueryBusinesses]);
+
+  const filteredProfiles = useMemo(() => {
+    if (!searchQueryUsers) return profiles;
+    const q = searchQueryUsers.toLowerCase().trim();
+    return profiles.filter(prof => {
+      const biz = businesses.find(b => b.id === prof.business_id);
+      const bizName = biz ? biz.business_name : 'Platform (Kairos)';
+      return prof.username.toLowerCase().includes(q) ||
+        prof.name.toLowerCase().includes(q) ||
+        prof.role.toLowerCase().includes(q) ||
+        (prof.phone_number && prof.phone_number.includes(q)) ||
+        bizName.toLowerCase().includes(q);
+    });
+  }, [profiles, businesses, searchQueryUsers]);
+
   const stats = useMemo(() => {
     if (!currentUser || currentUser.role === 'SUPER_ADMIN') return null;
 
@@ -2194,6 +2219,20 @@ public class MainActivity extends BridgeActivity {
                 </button>
               </div>
 
+              <div style={{ display: 'flex', gap: '16px', alignItems: 'center', marginBottom: '20px' }}>
+                <div style={{ position: 'relative', flex: 1 }}>
+                  <Search size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--neutral-400)' }} />
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="Search business name or tenant key..."
+                    value={searchQueryBusinesses}
+                    onChange={(e) => setSearchQueryBusinesses(e.target.value)}
+                    style={{ paddingLeft: '40px', paddingRight: '14px', height: '42px', fontSize: '13px' }}
+                  />
+                </div>
+              </div>
+
               <div className="card">
                 <div className="table-container">
                   <table className="custom-table">
@@ -2207,7 +2246,7 @@ public class MainActivity extends BridgeActivity {
                       </tr>
                     </thead>
                     <tbody>
-                      {businesses.map(biz => (
+                      {filteredBusinesses.map(biz => (
                         <tr key={biz.id}>
                           <td><strong>{biz.business_name}</strong></td>
                           <td><code>{biz.id}</code></td>
@@ -2244,6 +2283,20 @@ public class MainActivity extends BridgeActivity {
                 </button>
               </div>
 
+              <div style={{ display: 'flex', gap: '16px', alignItems: 'center', marginBottom: '20px' }}>
+                <div style={{ position: 'relative', flex: 1 }}>
+                  <Search size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--neutral-400)' }} />
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="Search username, full name, role, phone or client business..."
+                    value={searchQueryUsers}
+                    onChange={(e) => setSearchQueryUsers(e.target.value)}
+                    style={{ paddingLeft: '40px', paddingRight: '14px', height: '42px', fontSize: '13px' }}
+                  />
+                </div>
+              </div>
+
               <div className="card">
                 <div className="table-container">
                   <table className="custom-table">
@@ -2259,7 +2312,7 @@ public class MainActivity extends BridgeActivity {
                       </tr>
                     </thead>
                     <tbody>
-                      {profiles.map(prof => {
+                      {filteredProfiles.map(prof => {
                         const biz = businesses.find(b => b.id === prof.business_id);
                         return (
                           <tr key={prof.id}>

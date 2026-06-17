@@ -92,26 +92,37 @@ ALTER TABLE public.customers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.payments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
 
+-- Helpers: Bypassing recursion checks using SECURITY DEFINER functions
+CREATE OR REPLACE FUNCTION public.get_user_business_id()
+RETURNS UUID AS $$
+  SELECT business_id FROM public.profiles WHERE id = auth.uid();
+$$ LANGUAGE sql SECURITY DEFINER SET search_path = public;
+
+CREATE OR REPLACE FUNCTION public.get_user_role()
+RETURNS TEXT AS $$
+  SELECT role::TEXT FROM public.profiles WHERE id = auth.uid();
+$$ LANGUAGE sql SECURITY DEFINER SET search_path = public;
+
 -- 1. Policies for public.businesses
 CREATE POLICY "Super Admins can do anything on businesses" ON public.businesses
   FOR ALL TO authenticated USING (
-    (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'SUPER_ADMIN'
+    public.get_user_role() = 'SUPER_ADMIN'
   );
 
 CREATE POLICY "Owners and workers can read their own business details" ON public.businesses
   FOR SELECT TO authenticated USING (
-    id = (SELECT business_id FROM public.profiles WHERE id = auth.uid())
+    id = public.get_user_business_id()
   );
 
 -- 2. Policies for public.profiles
 CREATE POLICY "Super Admins can manage all profiles" ON public.profiles
   FOR ALL TO authenticated USING (
-    (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'SUPER_ADMIN'
+    public.get_user_role() = 'SUPER_ADMIN'
   );
 
 CREATE POLICY "Users can read profiles from their own business" ON public.profiles
   FOR SELECT TO authenticated USING (
-    business_id = (SELECT business_id FROM public.profiles WHERE id = auth.uid())
+    business_id = public.get_user_business_id()
   );
 
 CREATE POLICY "Users can update their own profile data" ON public.profiles
@@ -124,47 +135,47 @@ CREATE POLICY "Users can update their own profile data" ON public.profiles
 -- 3. Policies for public.customers
 CREATE POLICY "Super Admins can manage all customers" ON public.customers
   FOR ALL TO authenticated USING (
-    (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'SUPER_ADMIN'
+    public.get_user_role() = 'SUPER_ADMIN'
   );
 
 CREATE POLICY "Owners can manage customers of their business" ON public.customers
   FOR ALL TO authenticated USING (
-    business_id = (SELECT business_id FROM public.profiles WHERE id = auth.uid())
-    AND (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'OWNER'
+    business_id = public.get_user_business_id()
+    AND public.get_user_role() = 'OWNER'
   );
 
 CREATE POLICY "Workers can read and write customers assigned to their business" ON public.customers
   FOR ALL TO authenticated USING (
-    business_id = (SELECT business_id FROM public.profiles WHERE id = auth.uid())
-    AND (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'WORKER'
+    business_id = public.get_user_business_id()
+    AND public.get_user_role() = 'WORKER'
   );
 
 -- 4. Policies for public.payments
 CREATE POLICY "Super Admins can manage all payments" ON public.payments
   FOR ALL TO authenticated USING (
-    (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'SUPER_ADMIN'
+    public.get_user_role() = 'SUPER_ADMIN'
   );
 
 CREATE POLICY "Owners can manage payments of their business" ON public.payments
   FOR ALL TO authenticated USING (
-    business_id = (SELECT business_id FROM public.profiles WHERE id = auth.uid())
-    AND (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'OWNER'
+    business_id = public.get_user_business_id()
+    AND public.get_user_role() = 'OWNER'
   );
 
 CREATE POLICY "Workers can read and write payments of their business" ON public.payments
   FOR ALL TO authenticated USING (
-    business_id = (SELECT business_id FROM public.profiles WHERE id = auth.uid())
-    AND (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'WORKER'
+    business_id = public.get_user_business_id()
+    AND public.get_user_role() = 'WORKER'
   );
 
 -- 5. Policies for public.audit_logs
 CREATE POLICY "Super Admins can manage all audit logs" ON public.audit_logs
   FOR ALL TO authenticated USING (
-    (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'SUPER_ADMIN'
+    public.get_user_role() = 'SUPER_ADMIN'
   );
 
 CREATE POLICY "Owners can read audit logs of their business" ON public.audit_logs
   FOR SELECT TO authenticated USING (
-    business_id = (SELECT business_id FROM public.profiles WHERE id = auth.uid())
-    AND (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'OWNER'
+    business_id = public.get_user_business_id()
+    AND public.get_user_role() = 'OWNER'
   );

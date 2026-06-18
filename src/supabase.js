@@ -447,6 +447,27 @@ export const dbService = {
         await dbService.auditLogs.create(disabled ? 'BLOCK_USER' : 'UNBLOCK_USER', 'profiles', id, {}, adminUserId);
         return data;
       }
+    },
+
+    updateUpiId: async (id, upiId) => {
+      if (isMock) {
+        const profiles = mockDB.getProfiles();
+        const idx = profiles.findIndex(p => p.id === id);
+        if (idx === -1) throw new Error('Profile not found.');
+        
+        profiles[idx].upi_id = upiId;
+        mockDB.setProfiles([...profiles]);
+        return profiles[idx];
+      } else {
+        const { data, error } = await realSupabase
+          .from('profiles')
+          .update({ upi_id: upiId })
+          .eq('id', id)
+          .select()
+          .single();
+        if (error) throw error;
+        return data;
+      }
     }
   },
 

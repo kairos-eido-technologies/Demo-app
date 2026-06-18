@@ -269,7 +269,7 @@ export default function App() {
   const [reminderLanguage, setReminderLanguage] = useState(() => localStorage.getItem('kairos_reminder_lang') || 'ta');
 
   // UPI Generator States
-  const [upiIdInput, setUpiIdInput] = useState(() => localStorage.getItem('kairos_saved_upi') || '');
+  const [upiIdInput, setUpiIdInput] = useState('');
   const [upiAmountInput, setUpiAmountInput] = useState('350');
   const [upiNoteInput, setUpiNoteInput] = useState('Cable TV Payment');
   const [generatedUpiQrSrc, setGeneratedUpiQrSrc] = useState('');
@@ -706,8 +706,8 @@ export default function App() {
   const sendDueReminder = async (cust, unpaidMonths, mode = 'whatsapp') => {
     if (!cust) return;
     
-    // Read and validate UPI ID
-    const savedUpiId = localStorage.getItem('kairos_saved_upi');
+    // Read and validate UPI ID from the logged-in user profile
+    const savedUpiId = currentUser?.upi_id;
     if (!savedUpiId) {
       const errorMsg = reminderLanguage === 'ta'
         ? 'வாடிக்கையாளருக்கு கட்டண நினைவூட்டல் அனுப்ப, முதலில் "UPI QR Generator" கார்டில் தங்களின் UPI ஐடியை சேமிக்கவும்.'
@@ -993,6 +993,14 @@ export default function App() {
   }, [currentUser, isOnline]);
 
   useEffect(() => {
+    if (currentUser) {
+      setUpiIdInput(currentUser.upi_id || '');
+    } else {
+      setUpiIdInput('');
+    }
+  }, [currentUser]);
+
+  useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
       triggerOfflineSync();
@@ -1123,14 +1131,28 @@ export default function App() {
     }
   };
 
-  const handleGenerateUpiQr = (e) => {
+  const handleGenerateUpiQr = async (e) => {
     if (e) e.preventDefault();
     if (!upiIdInput.trim()) {
       showError('Please enter a valid UPI ID');
       return;
     }
     const cleanVpa = upiIdInput.trim();
-    localStorage.setItem('kairos_saved_upi', cleanVpa);
+    
+    // Save to database/mock profile
+    try {
+      if (currentUser) {
+        await dbService.profiles.updateUpiId(currentUser.id, cleanVpa);
+        // Update local state
+        const updatedUser = { ...currentUser, upi_id: cleanVpa };
+        setCurrentUser(updatedUser);
+        // Update local session storage cache
+        localStorage.setItem('kairos_session', JSON.stringify(updatedUser));
+      }
+    } catch (err) {
+      console.error('Failed to save UPI ID to database:', err);
+      showError('Failed to save UPI ID to database: ' + err.message);
+    }
     
     // Clean spaces and special characters for payee name and notes to prevent parser failures in UPI apps
     const bizName = (currentBusiness?.business_name || 'CableTV').trim().replace(/[^a-zA-Z0-9]/g, '');
@@ -1147,7 +1169,7 @@ export default function App() {
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&margin=10&data=${encodeURIComponent(upiUrl)}`;
 
     setGeneratedUpiQrSrc(qrUrl);
-    showSuccess('UPI QR Code generated successfully!');
+    showSuccess('UPI QR Code generated and profile updated successfully!');
   };
 
   const handleCreateBusiness = async (e) => {

@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   role user_role NOT NULL,
   name TEXT NOT NULL,
   phone_number TEXT,
+  upi_id TEXT, -- Custom UPI ID for reminders/QR payments
   disabled BOOLEAN NOT NULL DEFAULT false,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

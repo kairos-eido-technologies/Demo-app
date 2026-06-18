@@ -672,7 +672,7 @@ export default function App() {
     const waUrl = phone 
       ? `https://wa.me/${phone}?text=${encodeURIComponent(text)}` 
       : `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
-    window.open(waUrl, '_blank');
+    window.open(waUrl, '_system');
   };
 
   const getLast6MonthsList = () => {
@@ -768,8 +768,8 @@ export default function App() {
       const cleanBiz = bizName.replace(/[^a-zA-Z0-9]/g, '');
       const cleanNote = `Box${cust.box_id}Payment`.replace(/[^a-zA-Z0-9]/g, '');
       
-      // Use upi.pe as redirect service and omit tr parameter to comply with personal VPA deep linking policies
-      const upiRedirectUrl = `https://upi.pe/${savedUpiId}?pn=${encodeURIComponent(cleanBiz)}&am=${requestedAmountFormatted}&cu=INR&tn=${encodeURIComponent(cleanNote)}`;
+      // Use upipg.cit.org.in as a clean, ad-free redirect service to launch the UPI app directly without browser middleman redirect pages or file downloads
+      const upiRedirectUrl = `https://upipg.cit.org.in/?pa=${encodeURIComponent(savedUpiId)}&pn=${encodeURIComponent(cleanBiz)}&am=${requestedAmountFormatted}&cu=INR&tn=${encodeURIComponent(cleanNote)}`;
       
       if (reminderLanguage === 'ta') {
         text += `\n\nமொபைலில் பணம் செலுத்த கீழே உள்ள லிங்கை கிளிக் செய்யவும்:\n${upiRedirectUrl}`;
@@ -781,12 +781,12 @@ export default function App() {
     if (mode === 'sms') {
       const localPhone = cust.phone_number ? cust.phone_number.replace(/\D/g, '') : '';
       const smsUrl = `sms:${localPhone}?body=${encodeURIComponent(text)}`;
-      window.open(smsUrl, '_blank');
+      window.open(smsUrl, '_system');
     } else {
       const waUrl = phone 
         ? `https://wa.me/${phone}?text=${encodeURIComponent(text)}` 
         : `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
-      window.open(waUrl, '_blank');
+      window.open(waUrl, '_system');
     }
   };
 
@@ -1142,8 +1142,8 @@ export default function App() {
     // Build the native UPI URL: upi://pay?pa=...&pn=...&am=...&cu=INR&tn=...
     const upiUrl = `upi://pay?pa=${encodeURIComponent(cleanVpa)}&pn=${encodeURIComponent(bizName)}&am=${formattedAmount}&cu=INR&tn=${encodeURIComponent(cleanNote)}`;
     
-    // Build a browser-clickable redirect link using upi.pe and omitting tr parameter for P2P compliance
-    const clickableUrl = `https://upi.pe/${cleanVpa}?pn=${encodeURIComponent(bizName)}&am=${formattedAmount}&cu=INR&tn=${encodeURIComponent(cleanNote)}`;
+    // The clickable/copy link is formatted as a clean, ad-free web redirect page via upipg.cit.org.in to ensure direct launcher redirection on mobile devices
+    const clickableUrl = `https://upipg.cit.org.in/?pa=${encodeURIComponent(cleanVpa)}&pn=${encodeURIComponent(bizName)}&am=${formattedAmount}&cu=INR&tn=${encodeURIComponent(cleanNote)}`;
     
     // Set the QR image URL from api.qrserver.com encoding the native upiUrl
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&margin=10&data=${encodeURIComponent(upiUrl)}`;

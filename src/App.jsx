@@ -121,11 +121,9 @@ const TRANSLATIONS = {
     december: 'December',
     upiGenerator: 'UPI QR Generator',
     upiId: 'Payee UPI ID',
-    generateQr: 'Generate QR & Pay Link',
+    generateQr: 'Generate Payment QR',
     payAmount: 'Payment Amount (₹)',
-    billingNote: 'Payment Note',
-    launchApp: 'Launch Payment App',
-    copyPayLink: 'Copy Pay Link'
+    billingNote: 'Payment Note'
   },
   ta: {
     dashboard: 'முகப்பு',
@@ -231,11 +229,9 @@ const TRANSLATIONS = {
     december: 'டிசம்பர்',
     upiGenerator: 'UPI QR குறியீடு தயாரிப்பாளர்',
     upiId: 'UPI முகவரி',
-    generateQr: 'QR & இணைப்பை உருவாக்கு',
+    generateQr: 'QR குறியீட்டை உருவாக்கு',
     payAmount: 'தொகை (₹)',
-    billingNote: 'குறிப்பு',
-    launchApp: 'பணம் செலுத்தும் செயலியைத் திற',
-    copyPayLink: 'இணைப்பை நகலெடு'
+    billingNote: 'குறிப்பு'
   }
 };
 
@@ -271,15 +267,12 @@ export default function App() {
   const [activeReceiptPay, setActiveReceiptPay] = useState(null);
   const [activeReceiptCust, setActiveReceiptCust] = useState(null);
   const [reminderLanguage, setReminderLanguage] = useState(() => localStorage.getItem('kairos_reminder_lang') || 'ta');
-  const [includePaymentLink, setIncludePaymentLink] = useState(true);
 
   // UPI Generator States
   const [upiIdInput, setUpiIdInput] = useState(() => localStorage.getItem('kairos_saved_upi') || '');
   const [upiAmountInput, setUpiAmountInput] = useState('350');
   const [upiNoteInput, setUpiNoteInput] = useState('Cable TV Payment');
   const [generatedUpiQrSrc, setGeneratedUpiQrSrc] = useState('');
-  const [generatedUpiUrl, setGeneratedUpiUrl] = useState('');
-  const [generatedClickableUpiUrl, setGeneratedClickableUpiUrl] = useState('');
 
   // Form States
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
@@ -435,7 +428,7 @@ export default function App() {
   };
 
   // Helper: Share a File using navigator.share or download as fallback
-  const shareOrDownloadFile = async (blob, filename) => {
+  const shareOrDownloadFile = async (blob, filename, text = '') => {
     if (!blob) return false;
 
     // Native platform Capacitor sharing
@@ -450,6 +443,7 @@ export default function App() {
         
         await Share.share({
           title: filename,
+          text: text || filename,
           url: writeResult.uri
         });
         return true;
@@ -467,7 +461,7 @@ export default function App() {
         await navigator.share({
           files: [file],
           title: filename,
-          text: filename
+          text: text || filename
         });
         return true;
       } catch (err) {
@@ -709,15 +703,15 @@ export default function App() {
     return periodStr;
   };
 
-  const sendDueReminder = (cust, unpaidMonths, mode = 'whatsapp') => {
+  const sendDueReminder = async (cust, unpaidMonths, mode = 'whatsapp') => {
     if (!cust) return;
     
-    // Read and validate UPI ID if payment link option is enabled
+    // Read and validate UPI ID
     const savedUpiId = localStorage.getItem('kairos_saved_upi');
-    if (includePaymentLink && !savedUpiId) {
+    if (!savedUpiId) {
       const errorMsg = reminderLanguage === 'ta'
-        ? 'வாடிக்கையாளருக்கு கட்டண லிங்க் அனுப்ப, முதலில் "UPI QR Generator" கார்டில் தங்களின் UPI ஐடியை சேமிக்கவும்.'
-        : 'Please configure your Payee UPI ID in the UPI QR Generator first to include a payment link.';
+        ? 'வாடிக்கையாளருக்கு கட்டண நினைவூட்டல் அனுப்ப, முதலில் "UPI QR Generator" கார்டில் தங்களின் UPI ஐடியை சேமிக்கவும்.'
+        : 'Please configure your Payee UPI ID in the UPI QR Generator first to send a due reminder.';
       showError(errorMsg);
       return;
     }
@@ -740,6 +734,7 @@ export default function App() {
     const userInput = window.prompt(amountPrompt, totalDue);
     if (userInput === null) return; // user cancelled the operation
     const requestedAmount = parseFloat(userInput) || totalDue;
+    const requestedAmountFormatted = requestedAmount.toFixed(2);
     
     let text = '';
     if (reminderLanguage === 'ta') {
@@ -748,8 +743,10 @@ export default function App() {
              `அன்பார்ந்த வாடிக்கையாளர் ${cust.customer_name},\n` +
              `பாக்ஸ் ஐடி: ${cust.box_id}\n` +
              `செலுத்தப்படாத மாதங்கள்: ${unpaidMonthsStr}\n` +
-             `மொத்த நிலுவை தொகை: ₹${requestedAmount}\n` +
+             `மொத்த நிலுவை தொகை: ₹${requestedAmountFormatted}\n` +
+             `UPI முகவரி (UPI ID): ${savedUpiId}\n` +
              `தயவுசெய்து தங்களது நிலுவை தொகையை விரைவில் செலுத்துமாறு கேட்டுக்கொள்கிறோம்.\n\n` +
+             `*கட்டணம் செலுத்திய பின் அதன் ஸ்கிரீன்ஷாட்டை அனுப்பவும்.*\n\n` +
              `நன்றி!`;
     } else {
       text = `*${bizName}* - Payment Due Reminder\n` +
@@ -757,36 +754,40 @@ export default function App() {
              `Dear Customer ${cust.customer_name},\n` +
              `Box ID: ${cust.box_id}\n` +
              `Pending Month(s): ${unpaidMonthsStr}\n` +
-             `Total Outstanding: ₹${requestedAmount}\n` +
+             `Total Outstanding: ₹${requestedAmountFormatted}\n` +
+             `UPI ID: ${savedUpiId}\n` +
              `Please settle your pending dues at the earliest.\n\n` +
+             `*Please send a screenshot of the payment receipt for verification.*\n\n` +
              `Thank you!`;
     }
 
-    // Append payment link if toggled
-    if (includePaymentLink && savedUpiId) {
-      const requestedAmountFormatted = requestedAmount.toFixed(2);
-      const cleanBiz = bizName.replace(/[^a-zA-Z0-9]/g, '');
-      const cleanNote = `Box${cust.box_id}Payment`.replace(/[^a-zA-Z0-9]/g, '');
-      
-      // Use upipg.cit.org.in as a clean, ad-free redirect service to launch the UPI app directly without browser middleman redirect pages or file downloads
-      const upiRedirectUrl = `https://upipg.cit.org.in/?pa=${encodeURIComponent(savedUpiId)}&pn=${encodeURIComponent(cleanBiz)}&am=${requestedAmountFormatted}&cu=INR&tn=${encodeURIComponent(cleanNote)}`;
-      
-      if (reminderLanguage === 'ta') {
-        text += `\n\nமொபைலில் பணம் செலுத்த கீழே உள்ள லிங்கை கிளிக் செய்யவும்:\n${upiRedirectUrl}`;
-      } else {
-        text += `\n\nClick the link below to pay directly from your mobile:\n${upiRedirectUrl}`;
-      }
-    }
-    
     if (mode === 'sms') {
       const localPhone = cust.phone_number ? cust.phone_number.replace(/\D/g, '') : '';
       const smsUrl = `sms:${localPhone}?body=${encodeURIComponent(text)}`;
       window.open(smsUrl, '_system');
     } else {
-      const waUrl = phone 
-        ? `https://wa.me/${phone}?text=${encodeURIComponent(text)}` 
-        : `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
-      window.open(waUrl, '_system');
+      // Generate QR Code URL using api.qrserver.com encoding the native upiUrl
+      const cleanBiz = bizName.replace(/[^a-zA-Z0-9]/g, '');
+      const cleanNote = `Box${cust.box_id}Payment`.replace(/[^a-zA-Z0-9]/g, '');
+      const upiUrl = `upi://pay?pa=${encodeURIComponent(savedUpiId)}&pn=${encodeURIComponent(cleanBiz)}&am=${requestedAmountFormatted}&cu=INR&tn=${encodeURIComponent(cleanNote)}`;
+      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&margin=10&data=${encodeURIComponent(upiUrl)}`;
+
+      try {
+        showSuccess(reminderLanguage === 'ta' ? 'QR குறியீடு உருவாக்கப்படுகிறது...' : 'Generating QR code...');
+        const response = await fetch(qrUrl);
+        const blob = await response.blob();
+        const filename = `Due_QR_Box_${cust.box_id}.png`;
+        
+        await shareOrDownloadFile(blob, filename, text);
+      } catch (err) {
+        console.error(err);
+        showError(reminderLanguage === 'ta' ? 'QR குறியீடு பகிர முடியவில்லை. மெசேஜ் மட்டும் அனுப்பப்படுகிறது...' : 'Failed to share QR image, sending text message instead...');
+        // Fallback to plain WhatsApp text redirect
+        const waUrl = phone 
+          ? `https://wa.me/${phone}?text=${encodeURIComponent(text)}` 
+          : `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+        window.open(waUrl, '_system');
+      }
     }
   };
 
@@ -1142,16 +1143,11 @@ export default function App() {
     // Build the native UPI URL: upi://pay?pa=...&pn=...&am=...&cu=INR&tn=...
     const upiUrl = `upi://pay?pa=${encodeURIComponent(cleanVpa)}&pn=${encodeURIComponent(bizName)}&am=${formattedAmount}&cu=INR&tn=${encodeURIComponent(cleanNote)}`;
     
-    // The clickable/copy link is formatted as a clean, ad-free web redirect page via upipg.cit.org.in to ensure direct launcher redirection on mobile devices
-    const clickableUrl = `https://upipg.cit.org.in/?pa=${encodeURIComponent(cleanVpa)}&pn=${encodeURIComponent(bizName)}&am=${formattedAmount}&cu=INR&tn=${encodeURIComponent(cleanNote)}`;
-    
     // Set the QR image URL from api.qrserver.com encoding the native upiUrl
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&margin=10&data=${encodeURIComponent(upiUrl)}`;
 
-    setGeneratedUpiUrl(upiUrl);
-    setGeneratedClickableUpiUrl(clickableUrl);
     setGeneratedUpiQrSrc(qrUrl);
-    showSuccess('UPI QR Code and link generated successfully!');
+    showSuccess('UPI QR Code generated successfully!');
   };
 
   const handleCreateBusiness = async (e) => {
@@ -3887,14 +3883,29 @@ public class MainActivity extends BridgeActivity {
                   <div style={{ display: 'flex', gap: '8px', width: '100%', marginTop: '12px' }}>
                     <button 
                       type="button" 
-                      className="btn icon-align"
-                      style={{ width: '100%', padding: '10px', fontSize: '12px', background: 'var(--neutral-100)', color: 'var(--neutral-700)', justifyContent: 'center' }}
-                      onClick={() => {
-                        navigator.clipboard.writeText(generatedClickableUpiUrl);
-                        showSuccess('UPI link copied to clipboard!');
+                      className="btn btn-primary icon-align"
+                      style={{ width: '100%', padding: '10px', fontSize: '12px', justifyContent: 'center', gap: '4px' }}
+                      onClick={async () => {
+                        try {
+                          const response = await fetch(generatedUpiQrSrc);
+                          const blob = await response.blob();
+                          const amountVal = parseFloat(upiAmountInput) || 0;
+                          const filename = `UPI_QR_${amountVal.toFixed(2)}.png`;
+                          
+                          let shareText = '';
+                          if (language === 'ta') {
+                            shareText = `தயவுசெய்து இந்த UPI QR குறியீட்டைப் பயன்படுத்தி ₹${amountVal.toFixed(2)} செலுத்தவும். பணம் செலுத்திய பின், கட்டண சரிபார்ப்பிற்காக அதன் ஸ்கிரீன்ஷாட்டை அனுப்பவும்.`;
+                          } else {
+                            shareText = `Please pay ₹${amountVal.toFixed(2)} using this UPI QR Code. After paying, please send a screenshot of the transaction for payment verification.`;
+                          }
+                          await shareOrDownloadFile(blob, filename, shareText);
+                        } catch (err) {
+                          console.error(err);
+                          showError('Failed to share QR Code: ' + err.message);
+                        }
                       }}
                     >
-                      <Copy size={12} /> {t('copyPayLink')}
+                      <Share2 size={12} /> {language === 'ta' ? 'QR குறியீட்டைப் பகிர்க' : 'Share QR Code'}
                     </button>
                   </div>
                 </div>
@@ -4416,17 +4427,6 @@ public class MainActivity extends BridgeActivity {
                               </button>
                             </div>
                           </div>
-
-                          {/* Include Pay Link Checkbox */}
-                          <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '11px', color: 'var(--neutral-700)', fontWeight: 600, marginTop: '14px' }}>
-                            <input
-                              type="checkbox"
-                              checked={includePaymentLink}
-                              onChange={(e) => setIncludePaymentLink(e.target.checked)}
-                              style={{ width: '13px', height: '13px', cursor: 'pointer', accentColor: 'var(--primary-500)' }}
-                            />
-                            {reminderLanguage === 'ta' ? 'கட்டண லிங்க் சேர்க்க' : 'Include Link'}
-                          </label>
                         </div>
 
                         {/* Action buttons */}

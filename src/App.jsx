@@ -123,7 +123,8 @@ const TRANSLATIONS = {
     upiId: 'Payee UPI ID',
     generateQr: 'Generate Payment QR',
     payAmount: 'Payment Amount (₹)',
-    billingNote: 'Payment Note'
+    billingNote: 'Payment Note',
+    thisMonthEarning: 'This Month'
   },
   ta: {
     dashboard: 'முகப்பு',
@@ -231,7 +232,8 @@ const TRANSLATIONS = {
     upiId: 'UPI முகவரி',
     generateQr: 'QR குறியீட்டை உருவாக்கு',
     payAmount: 'தொகை (₹)',
-    billingNote: 'குறிப்பு'
+    billingNote: 'குறிப்பு',
+    thisMonthEarning: 'இந்த மாத வசூல்'
   }
 };
 
@@ -2139,6 +2141,10 @@ public class MainActivity extends BridgeActivity {
     const todayStr = new Date().toISOString().split('T')[0];
     const globalTodayCollected = tenantPays.filter(p => p.status?.toLowerCase() === 'paid' && p.payment_date === todayStr).reduce((sum, p) => sum + parseFloat(p.amount), 0);
 
+    // Current Month Collections (cash basis)
+    const currentYearMonth = new Date().toISOString().slice(0, 7); // e.g. "2026-06"
+    const globalMonthCollected = tenantPays.filter(p => p.status?.toLowerCase() === 'paid' && p.payment_date?.startsWith(currentYearMonth)).reduce((sum, p) => sum + parseFloat(p.amount), 0);
+
     const monthFilteredPays = tenantPays.filter(p => {
       if (reportFilterMonth === 'All' && reportFilterYear === 'All') return true;
       const parts = p.payment_period.split(' ');
@@ -2182,6 +2188,7 @@ public class MainActivity extends BridgeActivity {
       // Dynamic non-monthly target earnings
       globalTodayCollected,
       globalTotalCollected,
+      globalMonthCollected,
       
       reportCollected,
       workerPerformance,
@@ -3265,8 +3272,8 @@ public class MainActivity extends BridgeActivity {
                     <div className="card-value" style={{ fontSize: '22px', color: 'var(--success)' }}>₹{formatAmount(stats?.globalTodayCollected)}</div>
                   </div>
                   <div className="card" style={{ padding: '16px' }}>
-                    <span className="card-title" style={{ fontSize: '10px' }}>{t('totalEarning')}</span>
-                    <div className="card-value" style={{ fontSize: '22px', color: 'var(--primary-600)' }}>₹{formatAmount(stats?.globalTotalCollected)}</div>
+                    <span className="card-title" style={{ fontSize: '10px' }}>{t('thisMonthEarning')}</span>
+                    <div className="card-value" style={{ fontSize: '22px', color: 'var(--primary-600)' }}>₹{formatAmount(stats?.globalMonthCollected)}</div>
                   </div>
                 </div>
 
@@ -3970,6 +3977,66 @@ public class MainActivity extends BridgeActivity {
               >
                 <Download size={14} /> {t('downloadReport')}
               </button>
+            </div>
+
+            {/* Monthly Earnings Summary Card */}
+            <div className="card" style={{ padding: '18px', marginBottom: '20px' }}>
+              <h4 style={{ fontSize: '13px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--neutral-400)', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <BarChart3 size={16} /> {language === 'ta' ? 'மாதாந்திர வசூல் விவரம்' : 'Monthly Earnings Summary'}
+              </h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {(() => {
+                  const periodEarnings = {};
+                  payments.forEach(p => {
+                    if (p.status?.toLowerCase() === 'paid') {
+                      const period = p.payment_period;
+                      periodEarnings[period] = (periodEarnings[period] || 0) + parseFloat(p.amount);
+                    }
+                  });
+
+                  const sortedPeriods = Object.keys(periodEarnings).sort((a, b) => {
+                    const partsA = a.split(' ');
+                    const partsB = b.split(' ');
+                    if (partsA.length === 2 && partsB.length === 2) {
+                      const yearA = parseInt(partsA[1]);
+                      const yearB = parseInt(partsB[1]);
+                      if (yearA !== yearB) return yearB - yearA;
+                      
+                      const monthA = MONTHS_ORDER.indexOf(partsA[0]);
+                      const monthB = MONTHS_ORDER.indexOf(partsB[0]);
+                      return monthB - monthA;
+                    }
+                    return b.localeCompare(a);
+                  });
+
+                  if (sortedPeriods.length === 0) {
+                    return (
+                      <p style={{ fontSize: '12.5px', color: 'var(--neutral-400)', textAlign: 'center', margin: '10px 0' }}>
+                        {language === 'ta' ? 'வசூல் விவரங்கள் எதுவும் இல்லை.' : 'No earnings recorded yet.'}
+                      </p>
+                    );
+                  }
+
+                  return sortedPeriods.map(period => (
+                    <div 
+                      key={period} 
+                      style={{ 
+                        display: 'flex', 
+                        justifyContent: 'space-between', 
+                        alignItems: 'center', 
+                        padding: '8px 12px', 
+                        background: 'var(--neutral-50)', 
+                        borderRadius: '6px', 
+                        border: '1px solid var(--neutral-100)',
+                        fontSize: '13px'
+                      }}
+                    >
+                      <span style={{ fontWeight: 600, color: 'var(--neutral-700)' }}>{formatPeriodTranslated(period)}</span>
+                      <strong style={{ color: 'var(--success)' }}>₹{formatAmount(periodEarnings[period])}</strong>
+                    </div>
+                  ));
+                })()}
+              </div>
             </div>
 
             {currentUser.role === 'OWNER' ? (

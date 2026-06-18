@@ -764,12 +764,12 @@ export default function App() {
 
     // Append payment link if toggled
     if (includePaymentLink && savedUpiId) {
+      const requestedAmountFormatted = requestedAmount.toFixed(2);
       const cleanBiz = bizName.replace(/[^a-zA-Z0-9]/g, '');
       const cleanNote = `Box${cust.box_id}Payment`.replace(/[^a-zA-Z0-9]/g, '');
-      const uniqueTr = 'TXN' + Date.now();
       
-      // Fix upilink.in URL structure: /pay/VPA?pn=...
-      const upiRedirectUrl = `https://upilink.in/pay/${savedUpiId}?pn=${encodeURIComponent(cleanBiz)}&am=${requestedAmount}&cu=INR&tn=${encodeURIComponent(cleanNote)}&tr=${uniqueTr}`;
+      // Use upi.pe as redirect service and omit tr parameter to comply with personal VPA deep linking policies
+      const upiRedirectUrl = `https://upi.pe/${savedUpiId}?pn=${encodeURIComponent(cleanBiz)}&am=${requestedAmountFormatted}&cu=INR&tn=${encodeURIComponent(cleanNote)}`;
       
       if (reminderLanguage === 'ta') {
         text += `\n\nமொபைலில் பணம் செலுத்த கீழே உள்ள லிங்கை கிளிக் செய்யவும்:\n${upiRedirectUrl}`;
@@ -1135,16 +1135,15 @@ export default function App() {
     const bizName = (currentBusiness?.business_name || 'CableTV').trim().replace(/[^a-zA-Z0-9]/g, '');
     const amount = parseFloat(upiAmountInput) || 0;
     const cleanNote = (upiNoteInput.trim() || 'Payment').trim().replace(/[^a-zA-Z0-9]/g, '');
-    const formattedAmount = amount % 1 === 0 ? amount.toString() : amount.toFixed(2);
     
-    // Use a unique transaction ID (tr) to avoid bank limit / replay protection blocks
-    const uniqueTr = 'TXN' + Date.now();
+    // Always format with exactly 2 decimal places to comply with bank/app validation rules
+    const formattedAmount = amount.toFixed(2);
 
-    // Build the UPI URL: upi://pay?pa=...&pn=...&am=...&cu=INR&tn=...&tr=...
-    const upiUrl = `upi://pay?pa=${encodeURIComponent(cleanVpa)}&pn=${encodeURIComponent(bizName)}&am=${formattedAmount}&cu=INR&tn=${encodeURIComponent(cleanNote)}&tr=${uniqueTr}`;
+    // Build the native UPI URL: upi://pay?pa=...&pn=...&am=...&cu=INR&tn=...
+    const upiUrl = `upi://pay?pa=${encodeURIComponent(cleanVpa)}&pn=${encodeURIComponent(bizName)}&am=${formattedAmount}&cu=INR&tn=${encodeURIComponent(cleanNote)}`;
     
-    // Build a browser-clickable redirect link (uses upilink.in to redirect browsers to the upi:// protocol on mobile)
-    const clickableUrl = `https://upilink.in/pay/${cleanVpa}?pn=${encodeURIComponent(bizName)}&am=${formattedAmount}&cu=INR&tn=${encodeURIComponent(cleanNote)}&tr=${uniqueTr}`;
+    // Build a browser-clickable redirect link using upi.pe and omitting tr parameter for P2P compliance
+    const clickableUrl = `https://upi.pe/${cleanVpa}?pn=${encodeURIComponent(bizName)}&am=${formattedAmount}&cu=INR&tn=${encodeURIComponent(cleanNote)}`;
     
     // Set the QR image URL from api.qrserver.com encoding the native upiUrl
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&margin=10&data=${encodeURIComponent(upiUrl)}`;

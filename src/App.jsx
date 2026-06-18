@@ -3250,8 +3250,8 @@ public class MainActivity extends BridgeActivity {
 
                 <div className="card" style={{ padding: '14px 18px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span className="card-title" style={{ fontSize: '11px', fontWeight: 600, color: 'var(--neutral-400)', textTransform: 'uppercase', margin: 0 }}>Total:</span>
-                    <strong style={{ fontSize: '15px', color: 'var(--neutral-900)' }}>{stats?.totalCusts}</strong>
+                    <span className="card-title" style={{ fontSize: '11px', fontWeight: 600, color: 'var(--neutral-400)', textTransform: 'uppercase', margin: 0 }}>Active:</span>
+                    <strong style={{ fontSize: '15px', color: 'var(--neutral-900)' }}>{stats?.activeCusts}</strong>
                   </div>
                   <div style={{ width: '1px', height: '16px', background: 'var(--neutral-200)' }}></div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>

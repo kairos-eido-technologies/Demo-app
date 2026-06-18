@@ -9,6 +9,9 @@ import {
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 import dbService, { hashPassword } from './supabase';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
+import { Capacitor } from '@capacitor/core';
 
 // -------------------------------------------------------------
 // LOCALIZATION / TRANSLATIONS DICTIONARY (English & Tamil)
@@ -267,6 +270,8 @@ export default function App() {
   const [receiptImageSrc, setReceiptImageSrc] = useState(null);
   const [activeReceiptPay, setActiveReceiptPay] = useState(null);
   const [activeReceiptCust, setActiveReceiptCust] = useState(null);
+  const [reminderLanguage, setReminderLanguage] = useState(() => localStorage.getItem('kairos_reminder_lang') || 'ta');
+  const [includePaymentLink, setIncludePaymentLink] = useState(true);
 
   // UPI Generator States
   const [upiIdInput, setUpiIdInput] = useState(() => localStorage.getItem('kairos_saved_upi') || '');
@@ -274,6 +279,7 @@ export default function App() {
   const [upiNoteInput, setUpiNoteInput] = useState('Cable TV Payment');
   const [generatedUpiQrSrc, setGeneratedUpiQrSrc] = useState('');
   const [generatedUpiUrl, setGeneratedUpiUrl] = useState('');
+  const [generatedClickableUpiUrl, setGeneratedClickableUpiUrl] = useState('');
 
   // Form States
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
@@ -415,9 +421,45 @@ export default function App() {
     }
   };
 
+  const blobToBase64 = (blob) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result.split(',')[1];
+        resolve(base64String);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  };
+
   // Helper: Share a File using navigator.share or download as fallback
   const shareOrDownloadFile = async (blob, filename) => {
     if (!blob) return false;
+
+    // Native platform Capacitor sharing
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const base64Data = await blobToBase64(blob);
+        const writeResult = await Filesystem.writeFile({
+          path: filename,
+          data: base64Data,
+          directory: Directory.Cache
+        });
+        
+        await Share.share({
+          title: filename,
+          url: writeResult.uri
+        });
+        return true;
+      } catch (err) {
+        console.error('Capacitor native share/write failed:', err);
+        showError('Native sharing failed: ' + err.message);
+        return false;
+      }
+    }
+
+    // Browser fallbacks
     const file = new File([blob], filename, { type: blob.type });
     if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
       try {
@@ -652,18 +694,45 @@ export default function App() {
     return allPayments.some(p => p.customer_id === cust.id && p.payment_period?.trim()?.toLowerCase() === period?.trim()?.toLowerCase() && p.status?.toLowerCase() === 'paid');
   };
 
+  const translateTo = (key, lang = 'en') => {
+    return TRANSLATIONS[lang]?.[key] || TRANSLATIONS['en']?.[key] || key;
+  };
+
+  const formatPeriodForLang = (periodStr, lang) => {
+    if (!periodStr) return '';
+    const parts = periodStr.split(' ');
+    if (parts.length === 2) {
+      const mLower = parts[0].toLowerCase();
+      return `${translateTo(mLower, lang)} ${parts[1]}`;
+    }
+    return periodStr;
+  };
+
   const sendDueReminder = (cust, unpaidMonths, mode = 'whatsapp') => {
     if (!cust) return;
+    
+    // Read and validate UPI ID if payment link option is enabled
+    const savedUpiId = localStorage.getItem('kairos_saved_upi');
+    if (includePaymentLink && !savedUpiId) {
+      const errorMsg = reminderLanguage === 'ta'
+        ? 'வாடிக்கையாளருக்கு கட்டண லிங்க் அனுப்ப, முதலில் "UPI QR Generator" கார்டில் தங்களின் UPI ஐடியை சேமிக்கவும்.'
+        : 'Please configure your Payee UPI ID in the UPI QR Generator first to include a payment link.';
+      showError(errorMsg);
+      return;
+    }
+
     let phone = cust.phone_number ? cust.phone_number.replace(/\D/g, '') : '';
     if (phone && phone.length === 10) {
       phone = '91' + phone;
     }
     const bizName = import.meta.env.VITE_BUSINESS_NAME || currentBusiness?.business_name || 'City Cable Network';
-    const unpaidMonthsStr = unpaidMonths.map(formatPeriodTranslated).join(', ');
+    
+    // Format periods in the selected reminder language
+    const unpaidMonthsStr = unpaidMonths.map(p => formatPeriodForLang(p, reminderLanguage)).join(', ');
     const totalDue = unpaidMonths.length * 350; // assuming default 350 per month
     
     let text = '';
-    if (language === 'ta') {
+    if (reminderLanguage === 'ta') {
       text = `*${bizName}* - கட்டண நிலுவை நினைவூட்டல்\n` +
              `-------------------\n` +
              `அன்பார்ந்த வாடிக்கையாளர் ${cust.customer_name},\n` +
@@ -681,6 +750,20 @@ export default function App() {
              `Total Outstanding: ₹${totalDue}\n` +
              `Please settle your pending dues at the earliest.\n\n` +
              `Thank you!`;
+    }
+
+    // Append payment link if toggled
+    if (includePaymentLink && savedUpiId) {
+      const cleanBiz = bizName.replace(/[^a-zA-Z0-9]/g, '');
+      const cleanNote = `Box${cust.box_id}Payment`.replace(/[^a-zA-Z0-9]/g, '');
+      const uniqueTr = 'TXN' + Date.now();
+      const upiRedirectUrl = `https://upilink.in/pay?pa=${encodeURIComponent(savedUpiId)}&pn=${encodeURIComponent(cleanBiz)}&am=${totalDue}&cu=INR&tn=${encodeURIComponent(cleanNote)}&tr=${uniqueTr}`;
+      
+      if (reminderLanguage === 'ta') {
+        text += `\n\nமொபைலில் பணம் செலுத்த கீழே உள்ள லிங்கை கிளிக் செய்யவும்:\n${upiRedirectUrl}`;
+      } else {
+        text += `\n\nClick the link below to pay directly from your mobile:\n${upiRedirectUrl}`;
+      }
     }
     
     if (mode === 'sms') {
@@ -1036,18 +1119,26 @@ export default function App() {
     const cleanVpa = upiIdInput.trim();
     localStorage.setItem('kairos_saved_upi', cleanVpa);
     
-    const bizName = (currentBusiness?.business_name || 'Cable TV').trim().replace(/[^a-zA-Z0-9 ]/g, '');
+    // Clean spaces and special characters for payee name and notes to prevent parser failures in UPI apps
+    const bizName = (currentBusiness?.business_name || 'CableTV').trim().replace(/[^a-zA-Z0-9]/g, '');
     const amount = parseFloat(upiAmountInput) || 0;
-    const cleanNote = (upiNoteInput.trim() || 'Cable TV Payment').trim().replace(/[^a-zA-Z0-9 ]/g, '');
+    const cleanNote = (upiNoteInput.trim() || 'Payment').trim().replace(/[^a-zA-Z0-9]/g, '');
     const formattedAmount = amount % 1 === 0 ? amount.toString() : amount.toFixed(2);
-
-    // Build the UPI URL: upi://pay?pa=...&pn=...&am=...&cu=INR&tn=...
-    const upiUrl = `upi://pay?pa=${encodeURIComponent(cleanVpa)}&pn=${encodeURIComponent(bizName)}&am=${formattedAmount}&cu=INR&tn=${encodeURIComponent(cleanNote)}`;
     
-    // Set the QR image URL from api.qrserver.com
+    // Use a unique transaction ID (tr) to avoid bank limit / replay protection blocks
+    const uniqueTr = 'TXN' + Date.now();
+
+    // Build the UPI URL: upi://pay?pa=...&pn=...&am=...&cu=INR&tn=...&tr=...
+    const upiUrl = `upi://pay?pa=${encodeURIComponent(cleanVpa)}&pn=${encodeURIComponent(bizName)}&am=${formattedAmount}&cu=INR&tn=${encodeURIComponent(cleanNote)}&tr=${uniqueTr}`;
+    
+    // Build a browser-clickable redirect link (uses upilink.in to redirect browsers to the upi:// protocol on mobile)
+    const clickableUrl = `https://upilink.in/pay?pa=${encodeURIComponent(cleanVpa)}&pn=${encodeURIComponent(bizName)}&am=${formattedAmount}&cu=INR&tn=${encodeURIComponent(cleanNote)}&tr=${uniqueTr}`;
+    
+    // Set the QR image URL from api.qrserver.com encoding the native upiUrl
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&margin=10&data=${encodeURIComponent(upiUrl)}`;
 
     setGeneratedUpiUrl(upiUrl);
+    setGeneratedClickableUpiUrl(clickableUrl);
     setGeneratedUpiQrSrc(qrUrl);
     showSuccess('UPI QR Code and link generated successfully!');
   };
@@ -3762,7 +3853,7 @@ public class MainActivity extends BridgeActivity {
                       className="btn icon-align"
                       style={{ width: '100%', padding: '10px', fontSize: '12px', background: 'var(--neutral-100)', color: 'var(--neutral-700)', justifyContent: 'center' }}
                       onClick={() => {
-                        navigator.clipboard.writeText(generatedUpiUrl);
+                        navigator.clipboard.writeText(generatedClickableUpiUrl);
                         showSuccess('UPI link copied to clipboard!');
                       }}
                     >
@@ -4237,47 +4328,113 @@ public class MainActivity extends BridgeActivity {
                       </strong>
                     </div>
                     {hasDues && (
-                      <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
-                        <button
-                          onClick={() => sendDueReminder(selectedCustomer, unpaid, 'whatsapp')}
-                          className="btn btn-secondary"
-                          style={{ 
-                            flex: 1,
-                            padding: '8px 12px', 
-                            fontSize: '11px', 
-                            color: '#25D366', 
-                            borderColor: '#25D366', 
-                            background: 'rgba(37, 211, 102, 0.05)', 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            justifyContent: 'center',
-                            gap: '4px', 
-                            fontWeight: 700
-                          }}
-                        >
-                          <Share2 size={13} />
-                          {language === 'ta' ? 'வாட்ஸ்அப்' : 'WhatsApp'}
-                        </button>
-                        <button
-                          onClick={() => sendDueReminder(selectedCustomer, unpaid, 'sms')}
-                          className="btn btn-secondary"
-                          style={{ 
-                            flex: 1,
-                            padding: '8px 12px', 
-                            fontSize: '11px', 
-                            color: 'var(--primary-600)', 
-                            borderColor: 'var(--primary-300)', 
-                            background: 'var(--primary-50)', 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            justifyContent: 'center',
-                            gap: '4px', 
-                            fontWeight: 700
-                          }}
-                        >
-                          <Smartphone size={13} />
-                          {language === 'ta' ? 'சாதாரண SMS' : 'SMS Text'}
-                        </button>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', background: 'var(--neutral-50)', padding: '12px', borderRadius: '8px', border: '1px solid var(--neutral-200)', marginTop: '6px' }}>
+                        {/* Control Row: Language & Link Toggle */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
+                          {/* Language Selection Segmented Control */}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            <span style={{ fontSize: '10px', color: 'var(--neutral-500)', fontWeight: 600 }}>{reminderLanguage === 'ta' ? 'செய்தி மொழி' : 'Message Language'}</span>
+                            <div style={{ display: 'flex', background: 'var(--neutral-200)', padding: '2px', borderRadius: '6px' }}>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setReminderLanguage('ta');
+                                  localStorage.setItem('kairos_reminder_lang', 'ta');
+                                }}
+                                style={{
+                                  padding: '4px 10px',
+                                  fontSize: '10px',
+                                  border: 'none',
+                                  borderRadius: '4px',
+                                  cursor: 'pointer',
+                                  fontWeight: 600,
+                                  background: reminderLanguage === 'ta' ? '#ffffff' : 'transparent',
+                                  color: reminderLanguage === 'ta' ? 'var(--neutral-900)' : 'var(--neutral-500)',
+                                  boxShadow: reminderLanguage === 'ta' ? '0 1px 2px rgba(0,0,0,0.08)' : 'none',
+                                  transition: 'all 0.15s ease'
+                                }}
+                              >
+                                தமிழ்
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setReminderLanguage('en');
+                                  localStorage.setItem('kairos_reminder_lang', 'en');
+                                }}
+                                style={{
+                                  padding: '4px 10px',
+                                  fontSize: '10px',
+                                  border: 'none',
+                                  borderRadius: '4px',
+                                  cursor: 'pointer',
+                                  fontWeight: 600,
+                                  background: reminderLanguage === 'en' ? '#ffffff' : 'transparent',
+                                  color: reminderLanguage === 'en' ? 'var(--neutral-900)' : 'var(--neutral-500)',
+                                  boxShadow: reminderLanguage === 'en' ? '0 1px 2px rgba(0,0,0,0.08)' : 'none',
+                                  transition: 'all 0.15s ease'
+                                }}
+                              >
+                                English
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Include Pay Link Checkbox */}
+                          <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '11px', color: 'var(--neutral-700)', fontWeight: 600, marginTop: '14px' }}>
+                            <input
+                              type="checkbox"
+                              checked={includePaymentLink}
+                              onChange={(e) => setIncludePaymentLink(e.target.checked)}
+                              style={{ width: '13px', height: '13px', cursor: 'pointer', accentColor: 'var(--primary-500)' }}
+                            />
+                            {reminderLanguage === 'ta' ? 'கட்டண லிங்க் சேர்க்க' : 'Include Link'}
+                          </label>
+                        </div>
+
+                        {/* Action buttons */}
+                        <div style={{ display: 'flex', gap: '8px', marginTop: '2px' }}>
+                          <button
+                            onClick={() => sendDueReminder(selectedCustomer, unpaid, 'whatsapp')}
+                            className="btn btn-secondary"
+                            style={{ 
+                              flex: 1,
+                              padding: '8px 12px', 
+                              fontSize: '11px', 
+                              color: '#25D366', 
+                              borderColor: '#25D366', 
+                              background: 'rgba(37, 211, 102, 0.05)', 
+                              display: 'flex', 
+                              alignItems: 'center', 
+                              justifyContent: 'center',
+                              gap: '4px', 
+                              fontWeight: 700
+                            }}
+                          >
+                            <Share2 size={13} />
+                            {reminderLanguage === 'ta' ? 'வாட்ஸ்அப்' : 'WhatsApp'}
+                          </button>
+                          <button
+                            onClick={() => sendDueReminder(selectedCustomer, unpaid, 'sms')}
+                            className="btn btn-secondary"
+                            style={{ 
+                              flex: 1,
+                              padding: '8px 12px', 
+                              fontSize: '11px', 
+                              color: 'var(--primary-600)', 
+                              borderColor: 'var(--primary-300)', 
+                              background: 'var(--primary-50)', 
+                              display: 'flex', 
+                              alignItems: 'center', 
+                              justifyContent: 'center',
+                              gap: '4px', 
+                              fontWeight: 700
+                            }}
+                          >
+                            <Smartphone size={13} />
+                            {reminderLanguage === 'ta' ? 'SMS அனுப்ப' : 'SMS Text'}
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>

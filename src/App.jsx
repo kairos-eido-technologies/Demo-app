@@ -314,6 +314,7 @@ export default function App() {
   const [searchQueryUsers, setSearchQueryUsers] = useState('');
   const [ledgerSearchQuery, setLedgerSearchQuery] = useState('');
   const [filterWorker, setFilterWorker] = useState('');
+  const [ledgerFilterWorker, setLedgerFilterWorker] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [filterStreet, setFilterStreet] = useState('');
   
@@ -731,6 +732,15 @@ export default function App() {
     const unpaidMonthsStr = unpaidMonths.map(p => formatPeriodForLang(p, reminderLanguage)).join(', ');
     const totalDue = unpaidMonths.length * 350; // assuming default 350 per month
     
+    // Prompt for custom amount to pay
+    const amountPrompt = reminderLanguage === 'ta'
+      ? `தயவுசெய்து செலுத்த வேண்டிய தொகையை உள்ளிடவும் (இயல்புநிலை: ₹${totalDue}):`
+      : `Enter the amount to request from this customer (Default: ₹${totalDue}):`;
+      
+    const userInput = window.prompt(amountPrompt, totalDue);
+    if (userInput === null) return; // user cancelled the operation
+    const requestedAmount = parseFloat(userInput) || totalDue;
+    
     let text = '';
     if (reminderLanguage === 'ta') {
       text = `*${bizName}* - கட்டண நிலுவை நினைவூட்டல்\n` +
@@ -738,7 +748,7 @@ export default function App() {
              `அன்பார்ந்த வாடிக்கையாளர் ${cust.customer_name},\n` +
              `பாக்ஸ் ஐடி: ${cust.box_id}\n` +
              `செலுத்தப்படாத மாதங்கள்: ${unpaidMonthsStr}\n` +
-             `மொத்த நிலுவை தொகை: ₹${totalDue}\n` +
+             `மொத்த நிலுவை தொகை: ₹${requestedAmount}\n` +
              `தயவுசெய்து தங்களது நிலுவை தொகையை விரைவில் செலுத்துமாறு கேட்டுக்கொள்கிறோம்.\n\n` +
              `நன்றி!`;
     } else {
@@ -747,7 +757,7 @@ export default function App() {
              `Dear Customer ${cust.customer_name},\n` +
              `Box ID: ${cust.box_id}\n` +
              `Pending Month(s): ${unpaidMonthsStr}\n` +
-             `Total Outstanding: ₹${totalDue}\n` +
+             `Total Outstanding: ₹${requestedAmount}\n` +
              `Please settle your pending dues at the earliest.\n\n` +
              `Thank you!`;
     }
@@ -757,7 +767,9 @@ export default function App() {
       const cleanBiz = bizName.replace(/[^a-zA-Z0-9]/g, '');
       const cleanNote = `Box${cust.box_id}Payment`.replace(/[^a-zA-Z0-9]/g, '');
       const uniqueTr = 'TXN' + Date.now();
-      const upiRedirectUrl = `https://upilink.in/pay?pa=${encodeURIComponent(savedUpiId)}&pn=${encodeURIComponent(cleanBiz)}&am=${totalDue}&cu=INR&tn=${encodeURIComponent(cleanNote)}&tr=${uniqueTr}`;
+      
+      // Fix upilink.in URL structure: /pay/VPA?pn=...
+      const upiRedirectUrl = `https://upilink.in/pay/${savedUpiId}?pn=${encodeURIComponent(cleanBiz)}&am=${requestedAmount}&cu=INR&tn=${encodeURIComponent(cleanNote)}&tr=${uniqueTr}`;
       
       if (reminderLanguage === 'ta') {
         text += `\n\nமொபைலில் பணம் செலுத்த கீழே உள்ள லிங்கை கிளிக் செய்யவும்:\n${upiRedirectUrl}`;
@@ -1132,7 +1144,7 @@ export default function App() {
     const upiUrl = `upi://pay?pa=${encodeURIComponent(cleanVpa)}&pn=${encodeURIComponent(bizName)}&am=${formattedAmount}&cu=INR&tn=${encodeURIComponent(cleanNote)}&tr=${uniqueTr}`;
     
     // Build a browser-clickable redirect link (uses upilink.in to redirect browsers to the upi:// protocol on mobile)
-    const clickableUrl = `https://upilink.in/pay?pa=${encodeURIComponent(cleanVpa)}&pn=${encodeURIComponent(bizName)}&am=${formattedAmount}&cu=INR&tn=${encodeURIComponent(cleanNote)}&tr=${uniqueTr}`;
+    const clickableUrl = `https://upilink.in/pay/${cleanVpa}?pn=${encodeURIComponent(bizName)}&am=${formattedAmount}&cu=INR&tn=${encodeURIComponent(cleanNote)}&tr=${uniqueTr}`;
     
     // Set the QR image URL from api.qrserver.com encoding the native upiUrl
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&margin=10&data=${encodeURIComponent(upiUrl)}`;
@@ -2017,6 +2029,11 @@ public class MainActivity extends BridgeActivity {
       ? payments.filter(p => p.worker_id === currentUser.id) 
       : payments;
       
+    // Apply worker filter if user is Owner/Admin
+    if (currentUser.role?.toUpperCase() !== 'WORKER' && ledgerFilterWorker) {
+      list = list.filter(p => p.worker_id === ledgerFilterWorker);
+    }
+      
     if (ledgerSearchQuery.trim()) {
       const q = ledgerSearchQuery.toLowerCase().trim();
       list = list.filter(pay => {
@@ -2029,8 +2046,9 @@ public class MainActivity extends BridgeActivity {
         return customerName.includes(q) || boxId.includes(q) || date.includes(q) || workerName.includes(q);
       });
     }
-    return [...list].sort((a, b) => b.payment_date.localeCompare(a.payment_date));
-  }, [payments, customers, profiles, ledgerSearchQuery, currentUser]);
+    // Sort chronologically using created_at (or falling back to payment_date) so that updates/creations are in perfect order
+    return [...list].sort((a, b) => (b.created_at || b.payment_date || '').localeCompare(a.created_at || a.payment_date || ''));
+  }, [payments, customers, profiles, ledgerSearchQuery, ledgerFilterWorker, currentUser]);
 
   const existingStreets = useMemo(() => {
     const streets = customers.map(c => c.street_name?.trim()).filter(Boolean);
@@ -3685,6 +3703,26 @@ public class MainActivity extends BridgeActivity {
                 onChange={(e) => setLedgerSearchQuery(e.target.value)}
               />
             </div>
+            
+            {currentUser.role !== 'WORKER' && (
+              <div style={{ marginBottom: '16px' }}>
+                <select
+                  className="form-input"
+                  value={ledgerFilterWorker}
+                  onChange={(e) => setLedgerFilterWorker(e.target.value)}
+                  style={{ padding: '10px 14px', fontSize: '13px', background: 'var(--neutral-50)' }}
+                >
+                  <option value="">{language === 'ta' ? 'அனைத்து பணியாளர்கள் (All)' : 'All Collectors'}</option>
+                  {profiles
+                    .filter(p => p.role === 'WORKER')
+                    .map(worker => (
+                      <option key={worker.id} value={worker.id}>
+                        {worker.name} ({worker.username})
+                      </option>
+                    ))}
+                </select>
+              </div>
+            )}
 
             <div className="card" style={{ padding: '0 16px' }}>
               {filteredLedgerPayments.length === 0 ? (

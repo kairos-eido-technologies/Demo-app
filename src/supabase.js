@@ -55,7 +55,37 @@ export const hashPassword = async (password, salt = 'kairos_cable_salt_2026') =>
 // -------------------------------------------------------------
 // LOCAL STORAGE MOCK DATABASE SETUP
 // -------------------------------------------------------------
-const INITIAL_BUSINESSES = [];
+const INITIAL_BUSINESSES = [
+  { 
+    id: 'b-mock-city', 
+    business_name: 'City Cable Network', 
+    status: 'ACTIVE', 
+    phone_number: '+919876543210', 
+    payment_history: [
+      { period: 'June 2026', amount: 500, status: 'Paid', date: '2026-06-15', notes: 'Monthly SaaS fee' },
+      { period: 'May 2026', amount: 500, status: 'Paid', date: '2026-05-14', notes: 'Monthly SaaS fee' }
+    ],
+    created_at: new Date(2026, 5, 1).toISOString() 
+  },
+  { 
+    id: 'b-mock-town', 
+    business_name: 'Town Digital Vision', 
+    status: 'ACTIVE', 
+    phone_number: '+919999888877', 
+    payment_history: [
+      { period: 'June 2026', amount: 500, status: 'Paid', date: '2026-06-18', notes: 'Monthly SaaS fee' }
+    ],
+    created_at: new Date(2026, 5, 1).toISOString() 
+  },
+  {
+    id: 'b-mock-queued',
+    business_name: 'Metro Cable Link (Onboarding)',
+    status: 'QUEUED',
+    phone_number: '+918888777766',
+    payment_history: [],
+    created_at: new Date().toISOString()
+  }
+];
 
 const INITIAL_PROFILES = [
   { id: 'a1111111-1111-1111-1111-111111111111', business_id: null, username: 'admin_rhemi', role: 'SUPER_ADMIN', name: 'Rhemi (Super Admin)', phone_number: '+919999999999', disabled: false, created_at: new Date().toISOString() }
@@ -250,7 +280,7 @@ export const dbService = {
       }
     },
 
-    create: async (name, adminUserId) => {
+    create: async (name, phoneNumber, adminUserId, status = 'ACTIVE') => {
       if (isMock) {
         const list = mockDB.getBusinesses();
         const exists = list.some(b => b.business_name.toLowerCase() === name.toLowerCase());
@@ -259,18 +289,45 @@ export const dbService = {
         const newBiz = {
           id: 'b-' + Math.random().toString(36).substr(2, 9),
           business_name: name,
-          status: 'ACTIVE',
+          phone_number: phoneNumber || '',
+          payment_history: [],
+          status,
           created_at: new Date().toISOString()
         };
         mockDB.setBusinesses([newBiz, ...list]);
-        await dbService.auditLogs.create('CREATE_BUSINESS', 'businesses', newBiz.id, { name }, adminUserId);
+        await dbService.auditLogs.create('CREATE_BUSINESS', 'businesses', newBiz.id, { name, status }, adminUserId);
         return newBiz;
       } else {
         const id = generateUUID();
-        const { data, error } = await realSupabase.from('businesses').insert({ id, business_name: name }).select().single();
+        const newBiz = {
+          id,
+          business_name: name,
+          phone_number: phoneNumber || '',
+          payment_history: [],
+          status,
+          created_at: new Date().toISOString()
+        };
+        const { data, error } = await realSupabase.from('businesses').insert(newBiz).select().single();
         if (error) throw error;
-        await dbService.auditLogs.create('CREATE_BUSINESS', 'businesses', data.id, { name }, adminUserId);
+        await dbService.auditLogs.create('CREATE_BUSINESS', 'businesses', data.id, { name, status }, adminUserId);
         return data;
+      }
+    },
+
+    update: async (id, data, adminUserId) => {
+      if (isMock) {
+        const list = mockDB.getBusinesses();
+        const idx = list.findIndex(b => b.id === id);
+        if (idx === -1) throw new Error('Business not found.');
+        list[idx] = { ...list[idx], ...data };
+        mockDB.setBusinesses([...list]);
+        await dbService.auditLogs.create('UPDATE_BUSINESS', 'businesses', id, data, adminUserId);
+        return list[idx];
+      } else {
+        const { data: res, error } = await realSupabase.from('businesses').update(data).eq('id', id).select().single();
+        if (error) throw error;
+        await dbService.auditLogs.create('UPDATE_BUSINESS', 'businesses', id, data, adminUserId);
+        return res;
       }
     },
 
@@ -473,12 +530,15 @@ export const dbService = {
 
   // --- 4. CUSTOMER SERVICES ---
   customers: {
-    list: async (businessId) => {
+    list: async (businessId = null) => {
       if (isMock) {
         const list = mockDB.getCustomers();
-        return list.filter(c => c.business_id === businessId);
+        if (businessId) return list.filter(c => c.business_id === businessId);
+        return list;
       } else {
-        const { data, error } = await realSupabase.from('customers').select('*').eq('business_id', businessId).order('customer_name');
+        let query = realSupabase.from('customers').select('*');
+        if (businessId) query = query.eq('business_id', businessId);
+        const { data, error } = await query.order('customer_name');
         if (error) throw error;
         return data;
       }
@@ -581,12 +641,15 @@ export const dbService = {
 
   // --- 5. PAYMENT / COLLECTION SERVICES ---
   payments: {
-    list: async (businessId) => {
+    list: async (businessId = null) => {
       if (isMock) {
         const payments = mockDB.getPayments();
-        return payments.filter(p => p.business_id === businessId);
+        if (businessId) return payments.filter(p => p.business_id === businessId);
+        return payments;
       } else {
-        const { data, error } = await realSupabase.from('payments').select('*').eq('business_id', businessId).order('payment_date', { ascending: false });
+        let query = realSupabase.from('payments').select('*');
+        if (businessId) query = query.eq('business_id', businessId);
+        const { data, error } = await query.order('payment_date', { ascending: false });
         if (error) throw error;
         return data;
       }

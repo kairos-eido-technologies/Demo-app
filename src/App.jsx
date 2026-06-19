@@ -340,6 +340,13 @@ export default function App() {
   const [ledgerFilterMonth, setLedgerFilterMonth] = useState('All');
   const [ledgerFilterYear, setLedgerFilterYear] = useState('All');
 
+  // SaaS Payments & Onboarding states
+  const [selectedBusinessForPayments, setSelectedBusinessForPayments] = useState(null);
+  const [saasPaymentForm, setSaasPaymentForm] = useState({ periodMonth: new Date().toLocaleDateString('en-US', { month: 'long' }), periodYear: new Date().getFullYear().toString(), amount: '500', status: 'Paid', notes: '' });
+  const [selectedQueueBusiness, setSelectedQueueBusiness] = useState(null);
+  const [queueOnboardForm, setQueueOnboardForm] = useState({ username: '', name: '', password: '' });
+  const [queueAddForm, setQueueAddForm] = useState({ name: '', phone_number: '' });
+
   // Worker Inspector Filter States
   const [inspectDate, setInspectDate] = useState(new Date().toISOString().split('T')[0]);
   const [inspectMonth, setInspectMonth] = useState(new Date().toLocaleDateString('en-US', { month: 'long' }));
@@ -1064,9 +1071,13 @@ export default function App() {
         const biz = await dbService.businesses.list();
         const profs = await dbService.profiles.list();
         const logs = await dbService.auditLogs.list();
+        const allCusts = await dbService.customers.list();
+        const allPays = await dbService.payments.list();
         setBusinesses(biz);
         setProfiles(profs);
         setAuditLogs(logs);
+        setCustomers(allCusts);
+        setPayments(allPays);
       } else {
         const custs = await dbService.customers.list(user.business_id);
         const pays = await dbService.payments.list(user.business_id);
@@ -1194,11 +1205,94 @@ export default function App() {
     e.preventDefault();
     if (!businessForm.name) return showError('Business name is required.');
     try {
-      const newBiz = await dbService.businesses.create(businessForm.name, currentUser.id);
+      const newBiz = await dbService.businesses.create(businessForm.name, '', currentUser.id);
       setBusinesses([newBiz, ...businesses]);
       setBusinessForm({ name: '' });
       setModalType(null);
       showSuccess('Business registered successfully.');
+      loadData();
+    } catch (err) {
+      showError(err.message);
+    }
+  };
+
+  const handleAddToQueue = async (e) => {
+    e.preventDefault();
+    if (!queueAddForm.name) return showError('Company Name is required.');
+    try {
+      const newBiz = await dbService.businesses.create(queueAddForm.name, queueAddForm.phone_number, currentUser.id, 'QUEUED');
+      setBusinesses([newBiz, ...businesses]);
+      setQueueAddForm({ name: '', phone_number: '' });
+      setModalType(null);
+      showSuccess('Client added to onboarding queue.');
+      loadData();
+    } catch (err) {
+      showError(err.message);
+    }
+  };
+
+  const handleRemoveFromQueue = async (id) => {
+    if (!window.confirm('Are you sure you want to remove this client onboarding request?')) return;
+    try {
+      await dbService.businesses.delete(id, currentUser.id);
+      showSuccess('Client removed from queue.');
+      loadData();
+    } catch (err) {
+      showError(err.message);
+    }
+  };
+
+  const handleOnboardQueuedClient = async (e) => {
+    e.preventDefault();
+    if (!selectedQueueBusiness) return;
+    if (!queueOnboardForm.username || !queueOnboardForm.name || !queueOnboardForm.password) {
+      return showError('Owner Username, Name, and Password are required.');
+    }
+    try {
+      // 1. Promote business status to ACTIVE
+      const updatedBiz = await dbService.businesses.update(selectedQueueBusiness.id, { status: 'ACTIVE' }, currentUser.id);
+      
+      // 2. Create the Owner Profile/User account
+      await dbService.profiles.create(
+        queueOnboardForm.username,
+        queueOnboardForm.name,
+        'OWNER',
+        selectedQueueBusiness.phone_number,
+        queueOnboardForm.password,
+        selectedQueueBusiness.id,
+        currentUser.id
+      );
+
+      showSuccess(`Client "${selectedQueueBusiness.business_name}" onboarding completed successfully. Owner account provisioned.`);
+      setModalType(null);
+      setSelectedQueueBusiness(null);
+      loadData();
+    } catch (err) {
+      showError(err.message);
+    }
+  };
+
+  const handleRecordSaasPayment = async (e) => {
+    e.preventDefault();
+    if (!selectedBusinessForPayments) return;
+    try {
+      const newPayment = {
+        period: `${saasPaymentForm.periodMonth} ${saasPaymentForm.periodYear}`,
+        amount: parseFloat(saasPaymentForm.amount),
+        status: saasPaymentForm.status,
+        date: new Date().toISOString().split('T')[0],
+        notes: saasPaymentForm.notes
+      };
+
+      const updatedHistory = [newPayment, ...(selectedBusinessForPayments.payment_history || [])];
+      const updatedBiz = await dbService.businesses.update(selectedBusinessForPayments.id, { payment_history: updatedHistory }, currentUser.id);
+
+      showSuccess(`SaaS Payment recorded for ${selectedBusinessForPayments.business_name}.`);
+      
+      // Update local state
+      setBusinesses(businesses.map(b => b.id === selectedBusinessForPayments.id ? updatedBiz : b));
+      setSelectedBusinessForPayments(updatedBiz); // update modal info
+      setSaasPaymentForm({ ...saasPaymentForm, notes: '' }); // reset notes
       loadData();
     } catch (err) {
       showError(err.message);
@@ -2454,6 +2548,16 @@ public class MainActivity extends BridgeActivity {
                 </button>
               </li>
               <li>
+                <button className={`sidebar-link ${activeTab === 'my_clients' ? 'active' : ''}`} onClick={() => setActiveTab('my_clients')}>
+                  <Users size={18} /> My Clients
+                </button>
+              </li>
+              <li>
+                <button className={`sidebar-link ${activeTab === 'onboarding_queue' ? 'active' : ''}`} onClick={() => setActiveTab('onboarding_queue')}>
+                  <Layers size={18} /> Onboarding Queue
+                </button>
+              </li>
+              <li>
                 <button className={`sidebar-link ${activeTab === 'businesses' ? 'active' : ''}`} onClick={() => setActiveTab('businesses')}>
                   <Building2 size={18} /> Business Clients
                 </button>
@@ -2589,6 +2693,200 @@ public class MainActivity extends BridgeActivity {
                           </tr>
                         );
                       })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'my_clients' && (
+            <div className="animate-fade-in">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                <h3 style={{ fontSize: '18px' }}>Active Client Hub</h3>
+                <button onClick={() => {
+                  setQueueAddForm({ name: '', phone_number: '' });
+                  setModalType('add_queue_client');
+                }} className="btn btn-primary icon-align">
+                  <Plus size={16} /> Onboard New Client
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', gap: '16px', alignItems: 'center', marginBottom: '20px' }}>
+                <div style={{ position: 'relative', flex: 1 }}>
+                  <Search size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--neutral-400)' }} />
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="Search client by company name or phone number..."
+                    value={searchQueryBusinesses}
+                    onChange={(e) => setSearchQueryBusinesses(e.target.value)}
+                    style={{ paddingLeft: '40px', paddingRight: '14px', height: '42px', fontSize: '13px' }}
+                  />
+                </div>
+              </div>
+
+              <div className="card">
+                <div className="table-container">
+                  <table className="custom-table">
+                    <thead>
+                      <tr>
+                        <th>Company Name</th>
+                        <th>Phone Number</th>
+                        <th>Workers</th>
+                        <th>Customers</th>
+                        <th>Last SaaS Payment</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {businesses
+                        .filter(b => b.status !== 'QUEUED')
+                        .filter(b => !searchQueryBusinesses || b.business_name.toLowerCase().includes(searchQueryBusinesses.toLowerCase()) || (b.phone_number && b.phone_number.includes(searchQueryBusinesses)))
+                        .map(biz => {
+                          const wCount = profiles.filter(p => p.business_id === biz.id && p.role === 'WORKER').length;
+                          const cCount = customers.filter(c => c.business_id === biz.id).length;
+                          
+                          // Get last SaaS payment
+                          const sortedPayments = [...(biz.payment_history || [])].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+                          const lastPay = sortedPayments[0];
+                          const lastPayStr = lastPay 
+                            ? `${lastPay.period} (₹${lastPay.amount} - ${lastPay.status})` 
+                            : 'No payment recorded';
+
+                          return (
+                            <tr key={biz.id}>
+                              <td><strong>{biz.business_name}</strong></td>
+                              <td>{biz.phone_number || 'N/A'}</td>
+                              <td><span className="badge badge-active" style={{ background: 'var(--primary-50)', color: 'var(--primary-500)', fontSize: '12px' }}>{wCount} Workers</span></td>
+                              <td><span className="badge badge-active" style={{ background: 'var(--success-bg)', color: 'var(--success)', fontSize: '12px' }}>{cCount} Subscribers</span></td>
+                              <td>
+                                <span style={{ fontSize: '12px', fontWeight: 600, color: lastPay?.status?.toLowerCase() === 'paid' ? 'var(--success)' : 'var(--neutral-500)' }}>
+                                  {lastPayStr}
+                                </span>
+                              </td>
+                              <td>
+                                <span className={`badge ${biz.status === 'ACTIVE' ? 'badge-active' : 'badge-inactive'}`}>
+                                  {biz.status}
+                                </span>
+                              </td>
+                              <td>
+                                <div style={{ display: 'flex', gap: '8px' }}>
+                                  <button
+                                    onClick={() => {
+                                      setSelectedBusinessForPayments(biz);
+                                      setSaasPaymentForm({ periodMonth: 'June', periodYear: '2026', amount: '500', status: 'Paid', notes: '' });
+                                      setModalType('saas_payments_modal');
+                                    }}
+                                    className="btn btn-secondary icon-align"
+                                    style={{ padding: '6px 12px', fontSize: '11px', fontWeight: 700 }}
+                                  >
+                                    <Receipt size={13} /> SaaS Billing
+                                  </button>
+                                  <button
+                                    onClick={() => handleToggleBusinessStatus(biz.id, biz.status)}
+                                    className="btn btn-secondary"
+                                    style={{ padding: '6px 12px', fontSize: '11px', fontWeight: 700 }}
+                                  >
+                                    {biz.status === 'ACTIVE' ? 'Suspend' : 'Activate'}
+                                  </button>
+                                  <button
+                                    onClick={() => handlePromptDeleteBusiness(biz)}
+                                    className="btn btn-danger"
+                                    style={{ padding: '6px 12px', fontSize: '11px', fontWeight: 700 }}
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      {businesses.filter(b => b.status !== 'QUEUED').length === 0 && (
+                        <tr>
+                          <td colSpan="7" style={{ textAlign: 'center', padding: '30px 10px', color: 'var(--neutral-400)' }}>
+                            <Info size={28} style={{ margin: '0 auto 8px auto' }} />
+                            No active business clients registered.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'onboarding_queue' && (
+            <div className="animate-fade-in">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                <h3 style={{ fontSize: '18px' }}>Client Onboarding Queue</h3>
+                <button onClick={() => {
+                  setQueueAddForm({ name: '', phone_number: '' });
+                  setModalType('add_queue_client');
+                }} className="btn btn-primary icon-align">
+                  <Plus size={16} /> Add Client to Queue
+                </button>
+              </div>
+
+              <div className="card">
+                <div className="table-container">
+                  <table className="custom-table">
+                    <thead>
+                      <tr>
+                        <th>Company Name</th>
+                        <th>Contact Phone Number</th>
+                        <th>Queue Join Date</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {businesses
+                        .filter(b => b.status === 'QUEUED')
+                        .map(biz => (
+                          <tr key={biz.id}>
+                            <td><strong>{biz.business_name}</strong></td>
+                            <td>{biz.phone_number || 'N/A'}</td>
+                            <td>{new Date(biz.created_at).toLocaleString()}</td>
+                            <td>
+                              <span className="badge badge-inactive" style={{ background: '#fef3c7', color: '#d97706' }}>
+                                Waiting in Queue
+                              </span>
+                            </td>
+                            <td>
+                              <div style={{ display: 'flex', gap: '8px' }}>
+                                <button
+                                  onClick={() => {
+                                    setSelectedQueueBusiness(biz);
+                                    setQueueOnboardForm({ username: biz.business_name.toLowerCase().replace(/[^a-z0-9]/g, '') + '_owner', name: biz.business_name + ' Owner', password: 'password123' });
+                                    setModalType('onboard_client_modal');
+                                  }}
+                                  className="btn btn-primary icon-align"
+                                  style={{ padding: '6px 12px', fontSize: '11px', fontWeight: 700 }}
+                                >
+                                  <UserCheck size={13} /> Enter Data / Onboard
+                                </button>
+                                <button
+                                  onClick={() => handleRemoveFromQueue(biz.id)}
+                                  className="btn btn-danger"
+                                  style={{ padding: '6px 12px', fontSize: '11px', fontWeight: 700 }}
+                                >
+                                  Remove Request
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      {businesses.filter(b => b.status === 'QUEUED').length === 0 && (
+                        <tr>
+                          <td colSpan="5" style={{ textAlign: 'center', padding: '30px 10px', color: 'var(--neutral-400)' }}>
+                            <Info size={28} style={{ margin: '0 auto 8px auto' }} />
+                            No clients waiting in the onboarding queue.
+                          </td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -3061,6 +3359,226 @@ public class MainActivity extends BridgeActivity {
           )}
         </main>
 
+        {modalType === 'saas_payments_modal' && selectedBusinessForPayments && (
+          <div className="modal-overlay">
+            <div className="card animate-fade-in" style={{ width: 'calc(100% - 32px)', maxWidth: '540px', maxHeight: '90vh', overflowY: 'auto', background: '#ffffff', padding: '24px', border: '1px solid var(--neutral-200)', zIndex: 1010 }}>
+              <h3 style={{ marginBottom: '16px', fontSize: '20px' }}>SaaS Monthly Dues: {selectedBusinessForPayments.business_name}</h3>
+              
+              <div style={{ background: 'var(--neutral-50)', padding: '14px', borderRadius: 'var(--radius-md)', marginBottom: '24px', border: '1px solid var(--neutral-200)' }}>
+                <h4 style={{ fontSize: '13px', textTransform: 'uppercase', color: 'var(--neutral-500)', marginBottom: '10px', fontWeight: 800 }}>Record New Payment</h4>
+                <form onSubmit={handleRecordSaasPayment} style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px' }}>
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label" style={{ fontSize: '11px', marginBottom: '4px' }}>Month</label>
+                    <select
+                      className="form-input form-select"
+                      value={saasPaymentForm.periodMonth}
+                      onChange={(e) => setSaasPaymentForm({ ...saasPaymentForm, periodMonth: e.target.value })}
+                      style={{ padding: '8px', fontSize: '12.5px', height: '36px' }}
+                    >
+                      {MONTHS_ORDER.map(m => (
+                        <option key={m} value={m}>{t(m.toLowerCase())}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label" style={{ fontSize: '11px', marginBottom: '4px' }}>Year</label>
+                    <select
+                      className="form-input form-select"
+                      value={saasPaymentForm.periodYear}
+                      onChange={(e) => setSaasPaymentForm({ ...saasPaymentForm, periodYear: e.target.value })}
+                      style={{ padding: '8px', fontSize: '12.5px', height: '36px' }}
+                    >
+                      {['2024', '2025', '2026', '2027', '2028', '2029', '2030'].map(y => (
+                        <option key={y} value={y}>{y}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label" style={{ fontSize: '11px', marginBottom: '4px' }}>Amount (₹)</label>
+                    <input
+                      type="number"
+                      className="form-input"
+                      placeholder="e.g. 500"
+                      value={saasPaymentForm.amount}
+                      onChange={(e) => setSaasPaymentForm({ ...saasPaymentForm, amount: e.target.value })}
+                      style={{ padding: '8px', fontSize: '12.5px', height: '36px' }}
+                      required
+                    />
+                  </div>
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label" style={{ fontSize: '11px', marginBottom: '4px' }}>Payment Status</label>
+                    <select
+                      className="form-input form-select"
+                      value={saasPaymentForm.status}
+                      onChange={(e) => setSaasPaymentForm({ ...saasPaymentForm, status: e.target.value })}
+                      style={{ padding: '8px', fontSize: '12.5px', height: '36px' }}
+                    >
+                      <option value="Paid">Paid</option>
+                      <option value="Pending">Pending</option>
+                    </select>
+                  </div>
+                  <div className="form-group" style={{ gridColumn: 'span 2', margin: 0 }}>
+                    <label className="form-label" style={{ fontSize: '11px', marginBottom: '4px' }}>Notes</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="Transaction ID or payment remarks..."
+                      value={saasPaymentForm.notes}
+                      onChange={(e) => setSaasPaymentForm({ ...saasPaymentForm, notes: e.target.value })}
+                      style={{ padding: '8px', fontSize: '12.5px', height: '36px' }}
+                    />
+                  </div>
+                  <button type="submit" className="btn btn-primary" style={{ gridColumn: 'span 2', height: '36px', fontSize: '12.5px', padding: 0, justifyContent: 'center', marginTop: '8px' }}>
+                    Record Monthly Payment
+                  </button>
+                </form>
+              </div>
+
+              <h4 style={{ fontSize: '14px', marginBottom: '10px' }}>Platform Billing Logs</h4>
+              <div style={{ maxHeight: '200px', overflowY: 'auto', border: '1px solid var(--neutral-200)', borderRadius: 'var(--radius-sm)' }}>
+                {(selectedBusinessForPayments.payment_history || []).length === 0 ? (
+                  <p style={{ textAlign: 'center', padding: '20px 10px', color: 'var(--neutral-400)', fontSize: '12px', margin: 0 }}>
+                    No SaaS payment logs found for this client.
+                  </p>
+                ) : (
+                  <table className="custom-table" style={{ margin: 0, fontSize: '12.5px' }}>
+                    <thead>
+                      <tr>
+                        <th>Billing Month</th>
+                        <th>Amount</th>
+                        <th>Date Paid</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(selectedBusinessForPayments.payment_history || []).map((p, idx) => (
+                        <tr key={idx}>
+                          <td><strong>{p.period}</strong></td>
+                          <td>₹{formatAmount(p.amount)}</td>
+                          <td>{p.date}</td>
+                          <td>
+                            <span className={`badge ${p.status?.toLowerCase() === 'paid' ? 'badge-active' : 'badge-inactive'}`}>
+                              {p.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+
+              <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
+                <button type="button" onClick={() => {
+                  setModalType(null);
+                  setSelectedBusinessForPayments(null);
+                }} className="btn btn-secondary" style={{ flex: 1, height: '42px' }}>
+                  Close Panel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {modalType === 'onboard_client_modal' && selectedQueueBusiness && (
+          <div className="modal-overlay">
+            <div className="card animate-fade-in" style={{ width: 'calc(100% - 32px)', maxWidth: '480px', maxHeight: '90vh', overflowY: 'auto', background: '#ffffff', padding: '24px', border: '1px solid var(--neutral-200)', zIndex: 1010 }}>
+              <h3 style={{ marginBottom: '16px', fontSize: '20px' }}>Enter Client Data & Onboard</h3>
+              <p style={{ fontSize: '13px', color: 'var(--neutral-500)', marginBottom: '20px' }}>
+                Promoting <strong>{selectedQueueBusiness.business_name}</strong> to an active SaaS client. Please provision their primary business owner login account details below.
+              </p>
+              
+              <form onSubmit={handleOnboardQueuedClient}>
+                <div className="form-group">
+                  <label className="form-label">Owner Username (Login ID)</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="e.g. city_cable_owner"
+                    value={queueOnboardForm.username}
+                    onChange={(e) => setQueueOnboardForm({ ...queueOnboardForm, username: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Owner Full Name</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="e.g. Rajesh Kumar"
+                    value={queueOnboardForm.name}
+                    onChange={(e) => setQueueOnboardForm({ ...queueOnboardForm, name: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Account Password</label>
+                  <input
+                    type="password"
+                    className="form-input"
+                    placeholder="Password for login"
+                    value={queueOnboardForm.password}
+                    onChange={(e) => setQueueOnboardForm({ ...queueOnboardForm, password: e.target.value })}
+                    required
+                  />
+                </div>
+
+                <div style={{ display: 'flex', gap: '12px', marginTop: '32px' }}>
+                  <button type="button" onClick={() => {
+                    setModalType(null);
+                    setSelectedQueueBusiness(null);
+                  }} className="btn btn-secondary" style={{ flex: 1 }}>
+                    Cancel
+                  </button>
+                  <button type="submit" className="btn btn-primary animate-pulse" style={{ flex: 1 }}>
+                    Complete Onboarding
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {modalType === 'add_queue_client' && (
+          <div className="modal-overlay">
+            <div className="card animate-fade-in" style={{ width: 'calc(100% - 32px)', maxWidth: '480px', maxHeight: '90vh', overflowY: 'auto', background: '#ffffff', padding: '24px', border: '1px solid var(--neutral-200)', zIndex: 1010 }}>
+              <h3 style={{ marginBottom: '24px', fontSize: '20px' }}>Add Client Request to Queue</h3>
+              <form onSubmit={handleAddToQueue}>
+                <div className="form-group">
+                  <label className="form-label">Client Company Name</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="e.g. Galaxy Digital TV"
+                    value={queueAddForm.name}
+                    onChange={(e) => setQueueAddForm({ ...queueAddForm, name: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Contact Phone Number</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="e.g. +91 99009 90099"
+                    value={queueAddForm.phone_number}
+                    onChange={(e) => setQueueAddForm({ ...queueAddForm, phone_number: e.target.value })}
+                    required
+                  />
+                </div>
+                <div style={{ display: 'flex', gap: '12px', marginTop: '32px' }}>
+                  <button type="button" onClick={() => setModalType(null)} className="btn btn-secondary" style={{ flex: 1 }}>
+                    Cancel
+                  </button>
+                  <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>
+                    Add to Queue
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+        
         {modalType === 'add_business' && (
           <div className="modal-overlay">
             <div className="card animate-fade-in" style={{ width: 'calc(100% - 32px)', maxWidth: '480px', maxHeight: '90vh', overflowY: 'auto', background: '#ffffff', padding: '24px', border: '1px solid var(--neutral-200)', zIndex: 1010 }}>

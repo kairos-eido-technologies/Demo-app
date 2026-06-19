@@ -16,6 +16,7 @@ END$$;
 CREATE TABLE IF NOT EXISTS public.businesses (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   business_name TEXT UNIQUE NOT NULL,
+  owner_name TEXT,
   status TEXT NOT NULL DEFAULT 'ACTIVE',
   phone_number TEXT,
   payment_history JSONB DEFAULT '[]'::jsonb,
@@ -98,5 +99,6 @@ ALTER TABLE public.audit_logs DISABLE ROW LEVEL SECURITY;
 -- 4. Client Management schema updates (for existing databases)
 ALTER TABLE public.businesses ADD COLUMN IF NOT EXISTS phone_number TEXT;
 ALTER TABLE public.businesses ADD COLUMN IF NOT EXISTS payment_history JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE public.businesses ADD COLUMN IF NOT EXISTS owner_name TEXT;
 
 

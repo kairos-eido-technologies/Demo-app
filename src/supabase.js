@@ -59,6 +59,7 @@ const INITIAL_BUSINESSES = [
   { 
     id: 'b-mock-city', 
     business_name: 'City Cable Network', 
+    owner_name: 'Rajesh Kumar',
     status: 'ACTIVE', 
     phone_number: '+919876543210', 
     payment_history: [
@@ -70,6 +71,7 @@ const INITIAL_BUSINESSES = [
   { 
     id: 'b-mock-town', 
     business_name: 'Town Digital Vision', 
+    owner_name: 'Amit Patel',
     status: 'ACTIVE', 
     phone_number: '+919999888877', 
     payment_history: [
@@ -80,6 +82,7 @@ const INITIAL_BUSINESSES = [
   {
     id: 'b-mock-queued',
     business_name: 'Metro Cable Link (Onboarding)',
+    owner_name: 'Vikram Singh',
     status: 'QUEUED',
     phone_number: '+918888777766',
     payment_history: [],
@@ -280,7 +283,7 @@ export const dbService = {
       }
     },
 
-    create: async (name, phoneNumber, adminUserId, status = 'ACTIVE') => {
+    create: async (name, phoneNumber, ownerName, adminUserId, status = 'ACTIVE') => {
       if (isMock) {
         const list = mockDB.getBusinesses();
         const exists = list.some(b => b.business_name.toLowerCase() === name.toLowerCase());
@@ -289,6 +292,7 @@ export const dbService = {
         const newBiz = {
           id: 'b-' + Math.random().toString(36).substr(2, 9),
           business_name: name,
+          owner_name: ownerName || '',
           phone_number: phoneNumber || '',
           payment_history: [],
           status,
@@ -302,6 +306,7 @@ export const dbService = {
         const newBiz = {
           id,
           business_name: name,
+          owner_name: ownerName || '',
           phone_number: phoneNumber || '',
           payment_history: [],
           status,

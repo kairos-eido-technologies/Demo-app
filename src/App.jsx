@@ -278,7 +278,7 @@ export default function App() {
 
   // Form States
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
-  const [businessForm, setBusinessForm] = useState({ name: '' });
+  const [businessForm, setBusinessForm] = useState({ name: '', owner_name: '' });
   const [userForm, setUserForm] = useState({ username: '', name: '', role: 'WORKER', phone: '', password: '', businessId: '' });
   const [customerForm, setCustomerForm] = useState({ customer_name: '', street_name: '', box_id: '', phone_number: '', assigned_worker_id: '', connection_status: 'ACTIVE', notes: '' });
   const [bulkPaymentForm, setBulkPaymentForm] = useState({ periods: [], amount: '', notes: '', worker_id: '' });
@@ -345,7 +345,7 @@ export default function App() {
   const [saasPaymentForm, setSaasPaymentForm] = useState({ periodMonth: new Date().toLocaleDateString('en-US', { month: 'long' }), periodYear: new Date().getFullYear().toString(), amount: '500', status: 'Paid', notes: '' });
   const [selectedQueueBusiness, setSelectedQueueBusiness] = useState(null);
   const [queueOnboardForm, setQueueOnboardForm] = useState({ username: '', name: '', password: '' });
-  const [queueAddForm, setQueueAddForm] = useState({ name: '', phone_number: '' });
+  const [queueAddForm, setQueueAddForm] = useState({ name: '', phone_number: '', owner_name: '' });
 
   // Worker Inspector Filter States
   const [inspectDate, setInspectDate] = useState(new Date().toISOString().split('T')[0]);
@@ -1204,10 +1204,11 @@ export default function App() {
   const handleCreateBusiness = async (e) => {
     e.preventDefault();
     if (!businessForm.name) return showError('Business name is required.');
+    if (!businessForm.owner_name) return showError('Owner name is required.');
     try {
-      const newBiz = await dbService.businesses.create(businessForm.name, '', currentUser.id);
+      const newBiz = await dbService.businesses.create(businessForm.name, '', businessForm.owner_name, currentUser.id);
       setBusinesses([newBiz, ...businesses]);
-      setBusinessForm({ name: '' });
+      setBusinessForm({ name: '', owner_name: '' });
       setModalType(null);
       showSuccess('Business registered successfully.');
       loadData();
@@ -1219,10 +1220,11 @@ export default function App() {
   const handleAddToQueue = async (e) => {
     e.preventDefault();
     if (!queueAddForm.name) return showError('Company Name is required.');
+    if (!queueAddForm.owner_name) return showError('Owner Name is required.');
     try {
-      const newBiz = await dbService.businesses.create(queueAddForm.name, queueAddForm.phone_number, currentUser.id, 'QUEUED');
+      const newBiz = await dbService.businesses.create(queueAddForm.name, queueAddForm.phone_number, queueAddForm.owner_name, currentUser.id, 'QUEUED');
       setBusinesses([newBiz, ...businesses]);
-      setQueueAddForm({ name: '', phone_number: '' });
+      setQueueAddForm({ name: '', phone_number: '', owner_name: '' });
       setModalType(null);
       showSuccess('Client added to onboarding queue.');
       loadData();
@@ -2705,7 +2707,7 @@ public class MainActivity extends BridgeActivity {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                 <h3 style={{ fontSize: '18px' }}>Active Client Hub</h3>
                 <button onClick={() => {
-                  setQueueAddForm({ name: '', phone_number: '' });
+                  setQueueAddForm({ name: '', phone_number: '', owner_name: '' });
                   setModalType('add_queue_client');
                 }} className="btn btn-primary icon-align">
                   <Plus size={16} /> Onboard New Client
@@ -2732,6 +2734,7 @@ public class MainActivity extends BridgeActivity {
                     <thead>
                       <tr>
                         <th>Company Name</th>
+                        <th>Owner Name</th>
                         <th>Phone Number</th>
                         <th>Workers</th>
                         <th>Customers</th>
@@ -2758,6 +2761,7 @@ public class MainActivity extends BridgeActivity {
                           return (
                             <tr key={biz.id}>
                               <td><strong>{biz.business_name}</strong></td>
+                              <td>{biz.owner_name || profiles.find(p => p.business_id === biz.id && p.role === 'OWNER')?.name || 'N/A'}</td>
                               <td>{biz.phone_number || 'N/A'}</td>
                               <td><span className="badge badge-active" style={{ background: 'var(--primary-50)', color: 'var(--primary-500)', fontSize: '12px' }}>{wCount} Workers</span></td>
                               <td><span className="badge badge-active" style={{ background: 'var(--success-bg)', color: 'var(--success)', fontSize: '12px' }}>{cCount} Subscribers</span></td>
@@ -2823,7 +2827,7 @@ public class MainActivity extends BridgeActivity {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                 <h3 style={{ fontSize: '18px' }}>Client Onboarding Queue</h3>
                 <button onClick={() => {
-                  setQueueAddForm({ name: '', phone_number: '' });
+                  setQueueAddForm({ name: '', phone_number: '', owner_name: '' });
                   setModalType('add_queue_client');
                 }} className="btn btn-primary icon-align">
                   <Plus size={16} /> Add Client to Queue
@@ -2836,6 +2840,7 @@ public class MainActivity extends BridgeActivity {
                     <thead>
                       <tr>
                         <th>Company Name</th>
+                        <th>Owner Name</th>
                         <th>Contact Phone Number</th>
                         <th>Queue Join Date</th>
                         <th>Status</th>
@@ -2848,6 +2853,7 @@ public class MainActivity extends BridgeActivity {
                         .map(biz => (
                           <tr key={biz.id}>
                             <td><strong>{biz.business_name}</strong></td>
+                            <td>{biz.owner_name || 'N/A'}</td>
                             <td>{biz.phone_number || 'N/A'}</td>
                             <td>{new Date(biz.created_at).toLocaleString()}</td>
                             <td>
@@ -2860,7 +2866,11 @@ public class MainActivity extends BridgeActivity {
                                 <button
                                   onClick={() => {
                                     setSelectedQueueBusiness(biz);
-                                    setQueueOnboardForm({ username: biz.business_name.toLowerCase().replace(/[^a-z0-9]/g, '') + '_owner', name: biz.business_name + ' Owner', password: 'password123' });
+                                    setQueueOnboardForm({ 
+                                      username: biz.business_name.toLowerCase().replace(/[^a-z0-9]/g, '') + '_owner', 
+                                      name: biz.owner_name || (biz.business_name + ' Owner'), 
+                                      password: 'password123' 
+                                    });
                                     setModalType('onboard_client_modal');
                                   }}
                                   className="btn btn-primary icon-align"
@@ -2923,6 +2933,7 @@ public class MainActivity extends BridgeActivity {
                     <thead>
                       <tr>
                         <th>Operator Company Name</th>
+                        <th>Owner Name</th>
                         <th>Tenant Key (business_id)</th>
                         <th>Launch Date</th>
                         <th>Operational Status</th>
@@ -2933,6 +2944,7 @@ public class MainActivity extends BridgeActivity {
                       {filteredBusinesses.map(biz => (
                         <tr key={biz.id}>
                           <td><strong>{biz.business_name}</strong></td>
+                          <td>{biz.owner_name || profiles.find(p => p.business_id === biz.id && p.role === 'OWNER')?.name || 'N/A'}</td>
                           <td><code>{biz.id}</code></td>
                           <td>{new Date(biz.created_at).toLocaleDateString()}</td>
                           <td>
@@ -3556,6 +3568,17 @@ public class MainActivity extends BridgeActivity {
                   />
                 </div>
                 <div className="form-group">
+                  <label className="form-label">Owner Name</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="e.g. Rajesh Kumar"
+                    value={queueAddForm.owner_name}
+                    onChange={(e) => setQueueAddForm({ ...queueAddForm, owner_name: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="form-group">
                   <label className="form-label">Contact Phone Number</label>
                   <input
                     type="text"
@@ -3592,6 +3615,17 @@ public class MainActivity extends BridgeActivity {
                     placeholder="e.g. City Cable Vision"
                     value={businessForm.name}
                     onChange={(e) => setBusinessForm({ ...businessForm, name: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Owner Name</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="e.g. Rajesh Kumar"
+                    value={businessForm.owner_name}
+                    onChange={(e) => setBusinessForm({ ...businessForm, owner_name: e.target.value })}
                     required
                   />
                 </div>

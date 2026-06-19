@@ -66,6 +66,8 @@ const INITIAL_BUSINESSES = [
       { period: 'June 2026', amount: 500, status: 'Paid', date: '2026-06-15', notes: 'Monthly SaaS fee' },
       { period: 'May 2026', amount: 500, status: 'Paid', date: '2026-05-14', notes: 'Monthly SaaS fee' }
     ],
+    workers_count: 3,
+    customers_count: 85,
     created_at: new Date(2026, 5, 1).toISOString() 
   },
   { 
@@ -77,6 +79,8 @@ const INITIAL_BUSINESSES = [
     payment_history: [
       { period: 'June 2026', amount: 500, status: 'Paid', date: '2026-06-18', notes: 'Monthly SaaS fee' }
     ],
+    workers_count: 2,
+    customers_count: 45,
     created_at: new Date(2026, 5, 1).toISOString() 
   },
   {
@@ -86,6 +90,8 @@ const INITIAL_BUSINESSES = [
     status: 'QUEUED',
     phone_number: '+918888777766',
     payment_history: [],
+    workers_count: 5,
+    customers_count: 120,
     created_at: new Date().toISOString()
   }
 ];
@@ -283,7 +289,7 @@ export const dbService = {
       }
     },
 
-    create: async (name, phoneNumber, ownerName, adminUserId, status = 'ACTIVE') => {
+    create: async (name, phoneNumber, ownerName, workersCount = 0, customersCount = 0, adminUserId = null, status = 'ACTIVE') => {
       if (isMock) {
         const list = mockDB.getBusinesses();
         const exists = list.some(b => b.business_name.toLowerCase() === name.toLowerCase());
@@ -295,6 +301,8 @@ export const dbService = {
           owner_name: ownerName || '',
           phone_number: phoneNumber || '',
           payment_history: [],
+          workers_count: parseInt(workersCount) || 0,
+          customers_count: parseInt(customersCount) || 0,
           status,
           created_at: new Date().toISOString()
         };
@@ -309,6 +317,8 @@ export const dbService = {
           owner_name: ownerName || '',
           phone_number: phoneNumber || '',
           payment_history: [],
+          workers_count: parseInt(workersCount) || 0,
+          customers_count: parseInt(customersCount) || 0,
           status,
           created_at: new Date().toISOString()
         };

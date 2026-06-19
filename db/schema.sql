@@ -20,6 +20,8 @@ CREATE TABLE IF NOT EXISTS public.businesses (
   status TEXT NOT NULL DEFAULT 'ACTIVE',
   phone_number TEXT,
   payment_history JSONB DEFAULT '[]'::jsonb,
+  workers_count INTEGER DEFAULT 0,
+  customers_count INTEGER DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -100,5 +102,7 @@ ALTER TABLE public.audit_logs DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.businesses ADD COLUMN IF NOT EXISTS phone_number TEXT;
 ALTER TABLE public.businesses ADD COLUMN IF NOT EXISTS payment_history JSONB DEFAULT '[]'::jsonb;
 ALTER TABLE public.businesses ADD COLUMN IF NOT EXISTS owner_name TEXT;
+ALTER TABLE public.businesses ADD COLUMN IF NOT EXISTS workers_count INTEGER DEFAULT 0;
+ALTER TABLE public.businesses ADD COLUMN IF NOT EXISTS customers_count INTEGER DEFAULT 0;
 
 

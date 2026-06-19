@@ -345,7 +345,7 @@ export default function App() {
   const [saasPaymentForm, setSaasPaymentForm] = useState({ periodMonth: new Date().toLocaleDateString('en-US', { month: 'long' }), periodYear: new Date().getFullYear().toString(), amount: '500', status: 'Paid', notes: '' });
   const [selectedQueueBusiness, setSelectedQueueBusiness] = useState(null);
   const [queueOnboardForm, setQueueOnboardForm] = useState({ username: '', name: '', password: '' });
-  const [queueAddForm, setQueueAddForm] = useState({ name: '', phone_number: '', owner_name: '' });
+  const [queueAddForm, setQueueAddForm] = useState({ name: '', phone_number: '', owner_name: '', workers_count: '', customers_count: '' });
 
   // Worker Inspector Filter States
   const [inspectDate, setInspectDate] = useState(new Date().toISOString().split('T')[0]);
@@ -1206,7 +1206,7 @@ export default function App() {
     if (!businessForm.name) return showError('Business name is required.');
     if (!businessForm.owner_name) return showError('Owner name is required.');
     try {
-      const newBiz = await dbService.businesses.create(businessForm.name, '', businessForm.owner_name, currentUser.id);
+      const newBiz = await dbService.businesses.create(businessForm.name, '', businessForm.owner_name, 0, 0, currentUser.id);
       setBusinesses([newBiz, ...businesses]);
       setBusinessForm({ name: '', owner_name: '' });
       setModalType(null);
@@ -1222,9 +1222,17 @@ export default function App() {
     if (!queueAddForm.name) return showError('Company Name is required.');
     if (!queueAddForm.owner_name) return showError('Owner Name is required.');
     try {
-      const newBiz = await dbService.businesses.create(queueAddForm.name, queueAddForm.phone_number, queueAddForm.owner_name, currentUser.id, 'QUEUED');
+      const newBiz = await dbService.businesses.create(
+        queueAddForm.name, 
+        queueAddForm.phone_number, 
+        queueAddForm.owner_name, 
+        queueAddForm.workers_count || 0, 
+        queueAddForm.customers_count || 0, 
+        currentUser.id, 
+        'QUEUED'
+      );
       setBusinesses([newBiz, ...businesses]);
-      setQueueAddForm({ name: '', phone_number: '', owner_name: '' });
+      setQueueAddForm({ name: '', phone_number: '', owner_name: '', workers_count: '', customers_count: '' });
       setModalType(null);
       showSuccess('Client added to onboarding queue.');
       loadData();
@@ -2827,7 +2835,7 @@ public class MainActivity extends BridgeActivity {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                 <h3 style={{ fontSize: '18px' }}>Client Onboarding Queue</h3>
                 <button onClick={() => {
-                  setQueueAddForm({ name: '', phone_number: '', owner_name: '' });
+                  setQueueAddForm({ name: '', phone_number: '', owner_name: '', workers_count: '', customers_count: '' });
                   setModalType('add_queue_client');
                 }} className="btn btn-primary icon-align">
                   <Plus size={16} /> Add Client to Queue
@@ -2842,6 +2850,8 @@ public class MainActivity extends BridgeActivity {
                         <th>Company Name</th>
                         <th>Owner Name</th>
                         <th>Contact Phone Number</th>
+                        <th>Workers</th>
+                        <th>Customers</th>
                         <th>Queue Join Date</th>
                         <th>Status</th>
                         <th>Actions</th>
@@ -2855,6 +2865,8 @@ public class MainActivity extends BridgeActivity {
                             <td><strong>{biz.business_name}</strong></td>
                             <td>{biz.owner_name || 'N/A'}</td>
                             <td>{biz.phone_number || 'N/A'}</td>
+                            <td><span className="badge badge-active" style={{ background: 'var(--primary-50)', color: 'var(--primary-500)', fontSize: '12px' }}>{biz.workers_count || 0} Workers</span></td>
+                            <td><span className="badge badge-active" style={{ background: 'var(--success-bg)', color: 'var(--success)', fontSize: '12px' }}>{biz.customers_count || 0} Subscribers</span></td>
                             <td>{new Date(biz.created_at).toLocaleString()}</td>
                             <td>
                               <span className="badge badge-inactive" style={{ background: '#fef3c7', color: '#d97706' }}>
@@ -2891,7 +2903,7 @@ public class MainActivity extends BridgeActivity {
                         ))}
                       {businesses.filter(b => b.status === 'QUEUED').length === 0 && (
                         <tr>
-                          <td colSpan="5" style={{ textAlign: 'center', padding: '30px 10px', color: 'var(--neutral-400)' }}>
+                          <td colSpan="8" style={{ textAlign: 'center', padding: '30px 10px', color: 'var(--neutral-400)' }}>
                             <Info size={28} style={{ margin: '0 auto 8px auto' }} />
                             No clients waiting in the onboarding queue.
                           </td>
@@ -3588,6 +3600,30 @@ public class MainActivity extends BridgeActivity {
                     onChange={(e) => setQueueAddForm({ ...queueAddForm, phone_number: e.target.value })}
                     required
                   />
+                </div>
+                <div style={{ display: 'flex', gap: '16px' }}>
+                  <div className="form-group" style={{ flex: 1 }}>
+                    <label className="form-label">Number of Workers</label>
+                    <input
+                      type="number"
+                      className="form-input"
+                      placeholder="e.g. 5"
+                      value={queueAddForm.workers_count}
+                      onChange={(e) => setQueueAddForm({ ...queueAddForm, workers_count: e.target.value })}
+                      min="0"
+                    />
+                  </div>
+                  <div className="form-group" style={{ flex: 1 }}>
+                    <label className="form-label">Number of Customers</label>
+                    <input
+                      type="number"
+                      className="form-input"
+                      placeholder="e.g. 150"
+                      value={queueAddForm.customers_count}
+                      onChange={(e) => setQueueAddForm({ ...queueAddForm, customers_count: e.target.value })}
+                      min="0"
+                    />
+                  </div>
                 </div>
                 <div style={{ display: 'flex', gap: '12px', marginTop: '32px' }}>
                   <button type="button" onClick={() => setModalType(null)} className="btn btn-secondary" style={{ flex: 1 }}>

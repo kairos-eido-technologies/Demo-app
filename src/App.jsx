@@ -332,6 +332,14 @@ export default function App() {
   const [reportFilterMonth, setReportFilterMonth] = useState(new Date().toLocaleDateString('en-US', { month: 'long' }));
   const [reportFilterYear, setReportFilterYear] = useState(new Date().getFullYear().toString());
 
+  // Dashboard Month & Year Filter States
+  const [dashboardMonth, setDashboardMonth] = useState(new Date().toLocaleDateString('en-US', { month: 'long' }));
+  const [dashboardYear, setDashboardYear] = useState(new Date().getFullYear().toString());
+
+  // Ledger Month & Year Filter States
+  const [ledgerFilterMonth, setLedgerFilterMonth] = useState('All');
+  const [ledgerFilterYear, setLedgerFilterYear] = useState('All');
+
   // Worker Inspector Filter States
   const [inspectDate, setInspectDate] = useState(new Date().toISOString().split('T')[0]);
   const [inspectMonth, setInspectMonth] = useState(new Date().toLocaleDateString('en-US', { month: 'long' }));
@@ -380,6 +388,14 @@ export default function App() {
   const formatAmount = (val) => {
     const num = parseFloat(val || 0);
     return isNaN(num) ? '0.00' : num.toFixed(2);
+  };
+
+  // Helper: Get YYYY-MM string from month name and year
+  const getYearMonthString = (monthName, year) => {
+    const monthIdx = MONTHS_ORDER.indexOf(monthName);
+    if (monthIdx === -1) return '';
+    const mm = String(monthIdx + 1).padStart(2, '0');
+    return `${year}-${mm}`;
   };
 
   // Helper: Normalize street names to Title Case case-insensitively
@@ -2052,6 +2068,22 @@ public class MainActivity extends BridgeActivity {
     if (currentUser.role?.toUpperCase() !== 'WORKER' && ledgerFilterWorker) {
       list = list.filter(p => p.worker_id === ledgerFilterWorker);
     }
+    
+    // Apply month and year filters
+    if (ledgerFilterMonth && ledgerFilterMonth !== 'All') {
+      list = list.filter(p => {
+        if (!p.payment_period) return false;
+        const parts = p.payment_period.split(' ');
+        return parts[0] === ledgerFilterMonth;
+      });
+    }
+    if (ledgerFilterYear && ledgerFilterYear !== 'All') {
+      list = list.filter(p => {
+        if (!p.payment_period) return false;
+        const parts = p.payment_period.split(' ');
+        return parts[1] === ledgerFilterYear;
+      });
+    }
       
     if (ledgerSearchQuery.trim()) {
       const q = ledgerSearchQuery.toLowerCase().trim();
@@ -2067,7 +2099,7 @@ public class MainActivity extends BridgeActivity {
     }
     // Sort chronologically using created_at (or falling back to payment_date) so that updates/creations are in perfect order
     return [...list].sort((a, b) => (b.created_at || b.payment_date || '').localeCompare(a.created_at || a.payment_date || ''));
-  }, [payments, customers, profiles, ledgerSearchQuery, ledgerFilterWorker, currentUser]);
+  }, [payments, customers, profiles, ledgerSearchQuery, ledgerFilterWorker, ledgerFilterMonth, ledgerFilterYear, currentUser]);
 
   const existingStreets = useMemo(() => {
     const streets = customers.map(c => c.street_name?.trim()).filter(Boolean);
@@ -2134,38 +2166,41 @@ public class MainActivity extends BridgeActivity {
 
     const tenantPays = payments;
     
+    // Get year-month string for the selected dashboard month/year
+    const targetYM = getYearMonthString(dashboardMonth, dashboardYear);
+    
     // Total (All Time) Collections
     const globalTotalCollected = tenantPays.filter(p => p.status?.toLowerCase() === 'paid').reduce((sum, p) => sum + parseFloat(p.amount), 0);
 
-    // Today Collections
+    // Today Collections (only if today is in the selected month/year)
     const todayStr = new Date().toISOString().split('T')[0];
-    const globalTodayCollected = tenantPays.filter(p => p.status?.toLowerCase() === 'paid' && p.payment_date === todayStr).reduce((sum, p) => sum + parseFloat(p.amount), 0);
+    const globalTodayCollected = tenantPays.filter(p => {
+      if (p.status?.toLowerCase() !== 'paid') return false;
+      if (p.payment_date !== todayStr) return false;
+      return todayStr.startsWith(targetYM);
+    }).reduce((sum, p) => sum + parseFloat(p.amount), 0);
 
-    // Current Month Collections (cash basis)
-    const currentYearMonth = new Date().toISOString().slice(0, 7); // e.g. "2026-06"
-    const globalMonthCollected = tenantPays.filter(p => p.status?.toLowerCase() === 'paid' && p.payment_date?.startsWith(currentYearMonth)).reduce((sum, p) => sum + parseFloat(p.amount), 0);
+    // Selected Month Collections (cash basis: payments made in the selected calendar month)
+    const globalMonthCollected = tenantPays.filter(p => 
+      p.status?.toLowerCase() === 'paid' && p.payment_date?.startsWith(targetYM)
+    ).reduce((sum, p) => sum + parseFloat(p.amount), 0);
 
-    const monthFilteredPays = tenantPays.filter(p => {
-      if (reportFilterMonth === 'All' && reportFilterYear === 'All') return true;
-      const parts = p.payment_period.split(' ');
-      const m = parts[0];
-      const y = parts[1];
-      if (reportFilterMonth !== 'All' && m !== reportFilterMonth) return false;
-      if (reportFilterYear !== 'All' && y !== reportFilterYear) return false;
-      return true;
-    });
+    // For Area Rankings (Street Performance) on the dashboard, we filter payments for/in the selected dashboard month.
+    const dashboardFilteredPays = tenantPays.filter(p => 
+      p.payment_date?.startsWith(targetYM)
+    );
 
-    const reportCollected = monthFilteredPays.filter(p => p.status?.toLowerCase() === 'paid').reduce((sum, p) => sum + parseFloat(p.amount), 0);
+    const reportCollected = dashboardFilteredPays.filter(p => p.status?.toLowerCase() === 'paid').reduce((sum, p) => sum + parseFloat(p.amount), 0);
 
     const workerPerformance = {};
-    monthFilteredPays.forEach(p => {
+    dashboardFilteredPays.forEach(p => {
       if (p.status?.toLowerCase() === 'paid' && p.worker_id) {
         workerPerformance[p.worker_id] = (workerPerformance[p.worker_id] || 0) + parseFloat(p.amount);
       }
     });
 
     const streetPerformance = {};
-    monthFilteredPays.forEach(p => {
+    dashboardFilteredPays.forEach(p => {
       if (p.status?.toLowerCase() === 'paid') {
         const cust = tenantCusts.find(c => c.id === p.customer_id);
         if (cust) {
@@ -2175,9 +2210,20 @@ public class MainActivity extends BridgeActivity {
       }
     });
 
-    // Worker collections count
-    const myTodayColl = payments.filter(p => p.worker_id === currentUser.id && p.status?.toLowerCase() === 'paid' && p.payment_date === todayStr).reduce((sum, p) => sum + parseFloat(p.amount), 0);
-    const myTotalColl = payments.filter(p => p.worker_id === currentUser.id && p.status?.toLowerCase() === 'paid').reduce((sum, p) => sum + parseFloat(p.amount), 0);
+    // Worker collections count (for the current worker on dashboard)
+    const myTodayColl = payments.filter(p => {
+      if (p.worker_id !== currentUser.id) return false;
+      if (p.status?.toLowerCase() !== 'paid') return false;
+      if (p.payment_date !== todayStr) return false;
+      return todayStr.startsWith(targetYM);
+    }).reduce((sum, p) => sum + parseFloat(p.amount), 0);
+
+    const myTotalColl = payments.filter(p => 
+      p.worker_id === currentUser.id && 
+      p.status?.toLowerCase() === 'paid' && 
+      p.payment_date?.startsWith(targetYM)
+    ).reduce((sum, p) => sum + parseFloat(p.amount), 0);
+
     const myCustomersCount = customers.filter(c => c.assigned_worker_id === currentUser.id).length;
 
     return {
@@ -2185,7 +2231,6 @@ public class MainActivity extends BridgeActivity {
       activeCusts,
       inactiveCusts,
       
-      // Dynamic non-monthly target earnings
       globalTodayCollected,
       globalTotalCollected,
       globalMonthCollected,
@@ -2197,7 +2242,7 @@ public class MainActivity extends BridgeActivity {
       myTotalColl,
       myCustomersCount
     };
-  }, [currentUser, customers, payments, reportFilterMonth, reportFilterYear]);
+  }, [currentUser, customers, payments, dashboardMonth, dashboardYear]);
 
   const paymentPeriodsList = useMemo(() => {
     const list = payments.map(p => p.payment_period);
@@ -2207,12 +2252,14 @@ public class MainActivity extends BridgeActivity {
   }, [payments]);
 
   const totalUnpaidCustomersCount = useMemo(() => {
-    return customers.filter(c => c.connection_status?.toUpperCase() === 'ACTIVE' && getDueMonths(c, payments).length > 0).length;
-  }, [customers, payments]);
+    const dashboardPeriod = `${dashboardMonth} ${dashboardYear}`;
+    return customers.filter(c => c.connection_status?.toUpperCase() === 'ACTIVE' && !isMonthPaid(c, dashboardPeriod, payments)).length;
+  }, [customers, payments, dashboardMonth, dashboardYear]);
 
   const totalPaidCustomersCount = useMemo(() => {
-    return customers.filter(c => c.connection_status?.toUpperCase() === 'ACTIVE' && getDueMonths(c, payments).length === 0).length;
-  }, [customers, payments]);
+    const dashboardPeriod = `${dashboardMonth} ${dashboardYear}`;
+    return customers.filter(c => c.connection_status?.toUpperCase() === 'ACTIVE' && isMonthPaid(c, dashboardPeriod, payments)).length;
+  }, [customers, payments, dashboardMonth, dashboardYear]);
 
   // Get specific worker performance metrics
   const getWorkerProgressMetrics = (workerId) => {
@@ -3259,6 +3306,32 @@ public class MainActivity extends BridgeActivity {
                   </button>
                 </div>
 
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', background: 'var(--neutral-50)', padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--neutral-200)' }}>
+                  <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--neutral-600)' }}>
+                    {language === 'ta' ? 'கால அளவு:' : 'Period:'}
+                  </span>
+                  <select
+                    className="form-input form-select"
+                    value={dashboardMonth}
+                    onChange={(e) => setDashboardMonth(e.target.value)}
+                    style={{ padding: '6px 10px', fontSize: '12px', flex: 1, height: '34px', background: 'var(--card-bg)', border: '1px solid var(--neutral-200)', marginBottom: 0 }}
+                  >
+                    {MONTHS_ORDER.map(m => (
+                      <option key={m} value={m}>{t(m.toLowerCase())}</option>
+                    ))}
+                  </select>
+                  <select
+                    className="form-input form-select"
+                    value={dashboardYear}
+                    onChange={(e) => setDashboardYear(e.target.value)}
+                    style={{ padding: '6px 10px', fontSize: '12px', flex: 1, height: '34px', background: 'var(--card-bg)', border: '1px solid var(--neutral-200)', marginBottom: 0 }}
+                  >
+                    {['2024', '2025', '2026', '2027', '2028', '2029', '2030'].map(y => (
+                      <option key={y} value={y}>{y}</option>
+                    ))}
+                  </select>
+                </div>
+
                 <div style={{ marginBottom: '20px', padding: '16px', background: 'var(--primary-50)', borderRadius: 'var(--radius-md)', border: '1px solid var(--primary-100)' }}>
                   <h4 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--primary-900)', margin: 0 }}>
                     {getGreeting()}, {currentUser.name}
@@ -3298,8 +3371,11 @@ public class MainActivity extends BridgeActivity {
                 <div className="card" style={{ padding: '18px', marginBottom: '20px' }}>
                   <h4 style={{ fontSize: '13px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--neutral-400)', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}><Award size={16} /> {t('workerProgress')}</h4>
                   {profiles.filter(p => p.role === 'WORKER').map(w => {
-                    const todayColl = payments.filter(p => p.worker_id === w.id && p.status?.toLowerCase() === 'paid' && p.payment_date === new Date().toISOString().split('T')[0]).reduce((sum, p) => sum + parseFloat(p.amount), 0);
-                    const totalColl = payments.filter(p => p.worker_id === w.id && p.status?.toLowerCase() === 'paid').reduce((sum, p) => sum + parseFloat(p.amount), 0);
+                    const targetYM = getYearMonthString(dashboardMonth, dashboardYear);
+                    const todayStr = new Date().toISOString().split('T')[0];
+                    const todayColl = payments.filter(p => p.worker_id === w.id && p.status?.toLowerCase() === 'paid' && p.payment_date === todayStr && todayStr.startsWith(targetYM)).reduce((sum, p) => sum + parseFloat(p.amount), 0);
+                    const totalColl = payments.filter(p => p.worker_id === w.id && p.status?.toLowerCase() === 'paid' && p.payment_date?.startsWith(targetYM)).reduce((sum, p) => sum + parseFloat(p.amount), 0);
+                    const workerUnpaidForMonthCount = customers.filter(c => c.assigned_worker_id === w.id && c.connection_status?.toUpperCase() === 'ACTIVE' && !isMonthPaid(c, `${dashboardMonth} ${dashboardYear}`, payments)).length;
                     return (
                       <div 
                         key={w.id} 
@@ -3311,7 +3387,7 @@ public class MainActivity extends BridgeActivity {
                       >
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                           <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--neutral-800)' }}>{w.name}</span>
-                          <span style={{ fontSize: '11px', color: 'var(--danger)', fontWeight: 600 }}>Unpaid: {getUnpaidCustomersCountForWorker(w.id)}</span>
+                          <span style={{ fontSize: '11px', color: 'var(--danger)', fontWeight: 600 }}>Unpaid: {workerUnpaidForMonthCount}</span>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
                           <span style={{ color: 'var(--neutral-500)' }}>{t('todayEarning')}: <strong style={{ color: 'var(--success)' }}>₹{formatAmount(todayColl)}</strong></span>
@@ -3341,6 +3417,39 @@ public class MainActivity extends BridgeActivity {
             ) : (
               // WORKER VIEW DASHBOARD
               <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                  <h3 style={{ fontSize: '18px', fontWeight: 800 }}>{t('dashboard')}</h3>
+                  <button onClick={() => loadData()} style={{ background: 'none', border: 'none', color: 'var(--primary-500)', cursor: 'pointer' }}>
+                    <RefreshCw size={18} className={refreshing ? 'spinner' : ''} />
+                  </button>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', background: 'var(--neutral-50)', padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--neutral-200)' }}>
+                  <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--neutral-600)' }}>
+                    {language === 'ta' ? 'கால அளவு:' : 'Period:'}
+                  </span>
+                  <select
+                    className="form-input form-select"
+                    value={dashboardMonth}
+                    onChange={(e) => setDashboardMonth(e.target.value)}
+                    style={{ padding: '6px 10px', fontSize: '12px', flex: 1, height: '34px', background: 'var(--card-bg)', border: '1px solid var(--neutral-200)', marginBottom: 0 }}
+                  >
+                    {MONTHS_ORDER.map(m => (
+                      <option key={m} value={m}>{t(m.toLowerCase())}</option>
+                    ))}
+                  </select>
+                  <select
+                    className="form-input form-select"
+                    value={dashboardYear}
+                    onChange={(e) => setDashboardYear(e.target.value)}
+                    style={{ padding: '6px 10px', fontSize: '12px', flex: 1, height: '34px', background: 'var(--card-bg)', border: '1px solid var(--neutral-200)', marginBottom: 0 }}
+                  >
+                    {['2024', '2025', '2026', '2027', '2028', '2029', '2030'].map(y => (
+                      <option key={y} value={y}>{y}</option>
+                    ))}
+                  </select>
+                </div>
+
                 <div style={{ marginBottom: '20px', padding: '16px', background: 'var(--primary-50)', borderRadius: 'var(--radius-md)', border: '1px solid var(--primary-100)' }}>
                   <h4 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--primary-900)', margin: 0 }}>
                     {getGreeting()}, {currentUser.name}
@@ -3358,50 +3467,69 @@ public class MainActivity extends BridgeActivity {
                 </div>
 
                 <h4 style={{ fontSize: '14px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--neutral-400)', marginBottom: '14px' }}>{t('myRecentActs')}</h4>
-                {payments.filter(p => p.worker_id === currentUser.id).slice(0, 5).map(pay => {
-                  const cust = customers.find(c => c.id === pay.customer_id);
-                  return (
-                    <div 
-                      key={pay.id} 
-                      className="list-item"
-                      style={{ padding: '16px 20px' }}
-                    >
-                      <div className="list-item-main" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', cursor: 'pointer', flex: 1 }} onClick={() => handleOpenEditPayment(pay)}>
-                        <span className="list-item-title" style={{ display: 'block' }}>{cust ? cust.customer_name : 'Customer'}</span>
-                        <span className="list-item-subtitle" style={{ display: 'block', marginTop: '2px', fontWeight: 600 }}>{formatPeriodTranslated(pay.payment_period)}</span>
-                        <span className="list-item-subtitle" style={{ display: 'block', color: 'var(--neutral-400)', marginTop: '2px', fontSize: '11px' }}>
-                          {cust?.street_name ? `📍 ${cust.street_name} • ` : ''}{t('boxId')}: {pay.box_id}
-                        </span>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <strong style={{ color: 'var(--success)', fontSize: '15px' }}>₹{formatAmount(pay.amount)}</strong>
-                        <button
-                          onClick={async (e) => {
-                            e.stopPropagation();
-                            const imgData = await generateReceiptImage(pay, cust);
-                            setReceiptImageSrc(imgData);
-                            setActiveReceiptPay(pay);
-                            setActiveReceiptCust(cust);
-                            setModalType('receipt_modal');
-                          }}
-                          style={{ background: 'none', border: 'none', color: 'var(--primary-500)', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '6px' }}
-                          title="Generate Receipt"
-                        >
-                          <Receipt size={16} />
-                        </button>
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleOpenEditPayment(pay);
-                          }}
-                          style={{ background: 'none', border: 'none', color: 'var(--neutral-400)', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '6px' }}
-                        >
-                          <Edit2 size={14} />
-                        </button>
-                      </div>
-                    </div>
+                {(() => {
+                  const targetYM = getYearMonthString(dashboardMonth, dashboardYear);
+                  const filteredWorkerRecentPays = payments.filter(p => 
+                    p.worker_id === currentUser.id && 
+                    p.payment_date?.startsWith(targetYM)
                   );
-                })}
+                  
+                  if (filteredWorkerRecentPays.length === 0) {
+                    return (
+                      <div className="card" style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--neutral-400)' }}>
+                        <Info size={28} style={{ margin: '0 auto 8px auto', color: 'var(--neutral-300)' }} />
+                        <p style={{ fontSize: '12px', margin: 0 }}>
+                          {language === 'ta' ? 'இந்த காலத்தில் எந்த வசூலும் பதிவு செய்யப்படவில்லை.' : 'No collections registered for this period.'}
+                        </p>
+                      </div>
+                    );
+                  }
+
+                  return filteredWorkerRecentPays.slice(0, 5).map(pay => {
+                    const cust = customers.find(c => c.id === pay.customer_id);
+                    return (
+                      <div 
+                        key={pay.id} 
+                        className="list-item"
+                        style={{ padding: '16px 20px' }}
+                      >
+                        <div className="list-item-main" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', cursor: 'pointer', flex: 1 }} onClick={() => handleOpenEditPayment(pay)}>
+                          <span className="list-item-title" style={{ display: 'block' }}>{cust ? cust.customer_name : 'Customer'}</span>
+                          <span className="list-item-subtitle" style={{ display: 'block', marginTop: '2px', fontWeight: 600 }}>{formatPeriodTranslated(pay.payment_period)}</span>
+                          <span className="list-item-subtitle" style={{ display: 'block', color: 'var(--neutral-400)', marginTop: '2px', fontSize: '11px' }}>
+                            {cust?.street_name ? `📍 ${cust.street_name} • ` : ''}{t('boxId')}: {pay.box_id}
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <strong style={{ color: 'var(--success)', fontSize: '15px' }}>₹{formatAmount(pay.amount)}</strong>
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              const imgData = await generateReceiptImage(pay, cust);
+                              setReceiptImageSrc(imgData);
+                              setActiveReceiptPay(pay);
+                              setActiveReceiptCust(cust);
+                              setModalType('receipt_modal');
+                            }}
+                            style={{ background: 'none', border: 'none', color: 'var(--primary-500)', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '6px' }}
+                            title="Generate Receipt"
+                          >
+                            <Receipt size={16} />
+                          </button>
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenEditPayment(pay);
+                            }}
+                            style={{ background: 'none', border: 'none', color: 'var(--neutral-400)', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '6px' }}
+                          >
+                            <Edit2 size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
               </div>
             )}
           </div>
@@ -3726,6 +3854,31 @@ public class MainActivity extends BridgeActivity {
                 value={ledgerSearchQuery}
                 onChange={(e) => setLedgerSearchQuery(e.target.value)}
               />
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+              <select
+                className="form-input form-select"
+                value={ledgerFilterMonth}
+                onChange={(e) => setLedgerFilterMonth(e.target.value)}
+                style={{ padding: '10px 14px', fontSize: '13px', flex: 1, background: 'var(--neutral-50)', marginBottom: 0 }}
+              >
+                <option value="All">{language === 'ta' ? 'அனைத்து மாதங்கள் (All)' : 'All Months'}</option>
+                {MONTHS_ORDER.map(m => (
+                  <option key={m} value={m}>{t(m.toLowerCase())}</option>
+                ))}
+              </select>
+              <select
+                className="form-input form-select"
+                value={ledgerFilterYear}
+                onChange={(e) => setLedgerFilterYear(e.target.value)}
+                style={{ padding: '10px 14px', fontSize: '13px', flex: 1, background: 'var(--neutral-50)', marginBottom: 0 }}
+              >
+                <option value="All">{language === 'ta' ? 'அனைத்து வருடங்கள் (All)' : 'All Years'}</option>
+                {['2024', '2025', '2026', '2027', '2028', '2029', '2030'].map(y => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
             </div>
             
             {currentUser.role !== 'WORKER' && (
